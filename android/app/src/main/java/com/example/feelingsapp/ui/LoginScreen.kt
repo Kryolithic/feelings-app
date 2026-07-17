@@ -94,7 +94,7 @@ fun LoginScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Sign In with Google",
+                        text = "Sign In",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -102,7 +102,7 @@ fun LoginScreen(
             }
         }
     }
-
+    //Add firebase email and google auth here
     if (showChooser) {
         Dialog(onDismissRequest = { showChooser = false }) {
             Surface(
