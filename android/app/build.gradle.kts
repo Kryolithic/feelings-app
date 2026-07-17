@@ -88,5 +88,15 @@ dependencies {
 
     //Google fonts
     implementation("androidx.compose.ui:ui-text-google-fonts:1.11.4")
+
+    //Firebase auth UI
+    implementation("com.firebaseui:firebase-ui-auth:9.1.1")
+
+    //Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
+
+    //Firebase Auth
+    implementation("com.google.firebase:firebase-auth")
+
 }
 
