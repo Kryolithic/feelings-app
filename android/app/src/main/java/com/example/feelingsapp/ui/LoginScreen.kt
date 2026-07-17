@@ -16,10 +16,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.feelingsapp.data.User
+import com.example.feelingsapp.theme.fontFamily
+
+//import androidx.compose.ui:ui-text-google-fonts:1.11.3
 
 @Composable
 fun LoginScreen(
@@ -53,7 +58,8 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "wof.",
+                text = "mymood",
+                style = MaterialTheme.typography.titleLarge,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground

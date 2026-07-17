@@ -85,5 +85,8 @@ dependencies {
   // Serialization and Icons
   implementation(libs.kotlinx.serialization.json)
   implementation(libs.androidx.material.icons.core)
+
+    //Google fonts
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.11.4")
 }
 
