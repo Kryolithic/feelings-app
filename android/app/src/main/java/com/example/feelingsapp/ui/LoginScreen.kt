@@ -58,6 +58,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
+                fontFamily = fontFamily,
                 text = "mymood",
                 style = MaterialTheme.typography.titleLarge,
                 fontSize = 32.sp,
