@@ -1,7 +1,9 @@
 package com.example.feelingsapp.ui
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,25 +15,27 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.feelingsapp.data.FeelingsData
+import com.example.feelingsapp.data.IsoTimestamp
 import com.example.feelingsapp.data.LogEntry
-import java.text.SimpleDateFormat
+import com.example.feelingsapp.data.parseColorSafe
+import kotlinx.coroutines.delay
 import java.util.Date
-import java.util.Locale
 import java.util.UUID
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,15 +43,22 @@ fun LoggingWizardFlow(
     onAddLog: (LogEntry) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var step by remember { mutableStateOf(0) }
-    var selectedCore by remember { mutableStateOf("") }
-    var selectedSub1 by remember { mutableStateOf("") }
-    var selectedSub2 by remember { mutableStateOf("") }
-    var intensity by remember { mutableStateOf(5f) }
-    var note by remember { mutableStateOf("") }
+    var step by rememberSaveable { mutableStateOf(0) }
+    var selectedCore by rememberSaveable { mutableStateOf("") }
+    var selectedSub1 by rememberSaveable { mutableStateOf("") }
+    var selectedSub2 by rememberSaveable { mutableStateOf("") }
+    var intensity by rememberSaveable { mutableStateOf(5f) }
+    var note by rememberSaveable { mutableStateOf("") }
+
+    BackHandler(enabled = step in 1..4) {
+        step -= 1
+    }
 
     val coreColor = if (selectedCore.isNotEmpty()) {
-        Color(android.graphics.Color.parseColor(FeelingsData.emotions[selectedCore]?.color ?: "#5f27cd"))
+        parseColorSafe(
+            FeelingsData.emotions[selectedCore]?.color ?: "#5f27cd",
+            fallback = MaterialTheme.colorScheme.primary
+        )
     } else {
         MaterialTheme.colorScheme.primary
     }
@@ -57,7 +68,6 @@ fun LoggingWizardFlow(
             if (step in 1..4) {
                 TopAppBar(
                     title = {
-                        // Steps Progress Dots
                         Row(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
@@ -80,7 +90,7 @@ fun LoggingWizardFlow(
                     },
                     navigationIcon = {
                         IconButton(onClick = { step -= 1 }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -106,12 +116,15 @@ fun LoggingWizardFlow(
                 })
                 1 -> CoreEmotionSelectScreen(onSelect = {
                     selectedCore = it
+                    selectedSub1 = ""
+                    selectedSub2 = ""
                     step = 2
                 })
                 2 -> Sub1SelectScreen(
                     core = selectedCore,
                     onSelect = {
                         selectedSub1 = it
+                        selectedSub2 = ""
                         step = 3
                     }
                 )
@@ -135,12 +148,12 @@ fun LoggingWizardFlow(
                     onSubmit = {
                         val newLog = LogEntry(
                             id = UUID.randomUUID().toString(),
-                            timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date()),
+                            timestamp = IsoTimestamp.formatUtc(Date()),
                             core = selectedCore,
                             sub1 = selectedSub1,
                             sub2 = selectedSub2,
-                            intensity = intensity.toInt(),
-                            note = note,
+                            intensity = intensity.roundToInt(),
+                            note = note.trim(),
                             color = FeelingsData.emotions[selectedCore]?.color ?: "#5f27cd"
                         )
                         onAddLog(newLog)
@@ -151,7 +164,7 @@ fun LoggingWizardFlow(
                     coreColor = coreColor,
                     selectedSub1 = selectedSub1,
                     selectedSub2 = selectedSub2,
-                    intensity = intensity.toInt(),
+                    intensity = intensity.roundToInt(),
                     onFinish = { step = 0 }
                 )
             }
@@ -161,19 +174,22 @@ fun LoggingWizardFlow(
 
 @Composable
 fun StartScreen(onStart: () -> Unit) {
-    // Calming breathing animation simulation
-    val infiniteTransition = rememberInfiniteTransition(label = "breathing")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+    var isInhaling by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(4000L)
+            isInhaling = !isInhaling
+        }
+    }
+
+    val scale by animateFloatAsState(
+        targetValue = if (isInhaling) 1.06f else 0.94f,
+        animationSpec = tween(durationMillis = 4000, easing = LinearOutSlowInEasing),
         label = "scale"
     )
 
-    val breathingText = if (scale > 1.0f) "Inhale" else "Exhale"
+    val breathingText = if (isInhaling) "Inhale" else "Exhale"
 
     Column(
         modifier = Modifier
@@ -198,23 +214,20 @@ fun StartScreen(onStart: () -> Unit) {
             )
         }
 
-        // Breathing circle button
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(180.dp)
-                .align(Alignment.CenterHorizontally)
+                .clip(CircleShape)
                 .clickable(onClick = onStart)
         ) {
-            // Pulse Ring
             Box(
                 modifier = Modifier
-                    .size((180 * scale).dp)
+                    .size((170 * scale).dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
             )
-            
-            // Core circle
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -257,8 +270,8 @@ fun CoreEmotionSelectScreen(onSelect: (String) -> Unit) {
         ) {
             items(FeelingsData.emotions.keys.toList()) { core ->
                 val colorHex = FeelingsData.emotions[core]?.color ?: "#5f27cd"
-                val composeColor = Color(android.graphics.Color.parseColor(colorHex))
-                
+                val composeColor = parseColorSafe(colorHex)
+
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
@@ -290,7 +303,7 @@ fun CoreEmotionSelectScreen(onSelect: (String) -> Unit) {
 @Composable
 fun Sub1SelectScreen(core: String, onSelect: (String) -> Unit) {
     val coreEmotion = FeelingsData.emotions[core] ?: return
-    val composeColor = Color(android.graphics.Color.parseColor(coreEmotion.color))
+    val composeColor = parseColorSafe(coreEmotion.color)
 
     Column(
         modifier = Modifier
@@ -336,7 +349,7 @@ fun Sub1SelectScreen(core: String, onSelect: (String) -> Unit) {
 fun Sub2SelectScreen(core: String, sub1: String, onSelect: (String) -> Unit) {
     val coreEmotion = FeelingsData.emotions[core] ?: return
     val options = coreEmotion.sub1[sub1] ?: return
-    val composeColor = Color(android.graphics.Color.parseColor(coreEmotion.color))
+    val composeColor = parseColorSafe(coreEmotion.color)
 
     Column(
         modifier = Modifier
@@ -391,6 +404,8 @@ fun IntensitySelectScreen(
     onNoteChange: (String) -> Unit,
     onSubmit: () -> Unit
 ) {
+    val roundedIntensity = intensity.roundToInt()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -398,12 +413,22 @@ fun IntensitySelectScreen(
             .verticalScroll(rememberScrollState())
     ) {
         Text("How intense is this emotion?", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Text(
-            "Rate the strength of your feeling, and add optional notes.",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
-        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(coreColor.copy(alpha = 0.14f))
+                .padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+            Text(
+                text = "$selectedCore → $selectedSub1 → $selectedSub2",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = coreColor
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         Card(
             shape = RoundedCornerShape(20.dp),
@@ -415,13 +440,13 @@ fun IntensitySelectScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = intensity.toInt().toString(),
+                    text = roundedIntensity.toString(),
                     fontSize = 56.sp,
                     fontWeight = FontWeight.Bold,
                     color = coreColor
                 )
-                
-                val label = when (intensity.toInt()) {
+
+                val label = when (roundedIntensity) {
                     in 1..3 -> "Mild"
                     in 4..6 -> "Moderate"
                     in 7..8 -> "Intense"
@@ -461,7 +486,7 @@ fun IntensitySelectScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
         )
-        
+
         OutlinedTextField(
             value = note,
             onValueChange = onNoteChange,

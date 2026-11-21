@@ -1,145 +1,237 @@
-import React, { useState } from 'react';
-
-interface User {
-  name: string;
-  email: string;
-  avatar: string;
-}
+import React, { useEffect, useState } from 'react';
+import type { User } from '../types';
 
 interface LoginScreenProps {
-  onLogin: (user: User) => void;
+  isFirebaseEnabled: boolean;
+  onFirebaseSignIn: () => Promise<void>;
+  onDemoLogin: (user: User) => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+const DEMO_ACCOUNTS: User[] = [
+  { uid: 'demo-gary', name: 'Gary', email: 'gary@gmail.com', avatar: '', isDemo: true },
+  { uid: 'demo-dev', name: 'Developer User', email: 'developer@feelings.app', avatar: '', isDemo: true },
+];
+
+export const LoginScreen: React.FC<LoginScreenProps> = ({
+  isFirebaseEnabled,
+  onFirebaseSignIn,
+  onDemoLogin,
+}) => {
   const [showChooser, setShowChooser] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const mockAccounts = [
-    { name: 'Gary', email: 'gary@gmail.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80' },
-    { name: 'Developer User', email: 'developer@feelings.app', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80' }
-  ];
+  useEffect(() => {
+    if (!showChooser) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowChooser(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showChooser]);
 
-  const handleSelectAccount = (account: typeof mockAccounts[0]) => {
+  const handleSignInClick = async () => {
+    setAuthError(null);
+    if (isFirebaseEnabled) {
+      setIsSigningIn(true);
+      try {
+        await onFirebaseSignIn();
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : 'Unable to sign in with Google right now.';
+        setAuthError(message);
+      } finally {
+        setIsSigningIn(false);
+      }
+      return;
+    }
+
+    setShowChooser(true);
+  };
+
+  const handleSelectDemoAccount = (account: User) => {
     setShowChooser(false);
-    onLogin({
-      name: account.name,
-      email: account.email,
-      avatar: account.avatar
-    });
+    onDemoLogin(account);
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      justifyContent: 'center',
-      padding: '32px',
-      position: 'relative'
-    }} className="animate-fade-in">
-      
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        justifyContent: 'center',
+        padding: '32px',
+        position: 'relative',
+      }}
+      className="animate-fade-in"
+    >
       {/* Decorative calm background elements */}
-      <div style={{
-        position: 'absolute',
-        top: '10%',
-        left: '10%',
-        width: '120px',
-        height: '120px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(155, 93, 229, 0.15) 0%, rgba(255,255,255,0) 70%)',
-        zIndex: 0,
-        pointerEvents: 'none'
-      }} />
-      <div style={{
-        position: 'absolute',
-        bottom: '20%',
-        right: '10%',
-        width: '180px',
-        height: '180px',
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(95, 39, 205, 0.1) 0%, rgba(255,255,255,0) 70%)',
-        zIndex: 0,
-        pointerEvents: 'none'
-      }} />
+      <div
+        style={{
+          position: 'absolute',
+          top: '10%',
+          left: '10%',
+          width: '120px',
+          height: '120px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(155, 93, 229, 0.15) 0%, rgba(255,255,255,0) 70%)',
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '20%',
+          right: '10%',
+          width: '180px',
+          height: '180px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(95, 39, 205, 0.1) 0%, rgba(255,255,255,0) 70%)',
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}
+      />
 
       <div style={{ zIndex: 1, textAlign: 'center', marginBottom: '40px' }}>
-        <div style={{
-          width: '72px',
-          height: '72px',
-          borderRadius: '24px',
-          background: 'var(--accent-light)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 24px auto',
-          color: 'var(--accent)',
-          fontSize: '32px',
-          boxShadow: 'var(--shadow-sm)'
-        }}>
+        <div
+          style={{
+            width: '72px',
+            height: '72px',
+            borderRadius: '24px',
+            background: 'var(--accent-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px auto',
+            color: 'var(--accent)',
+            fontSize: '32px',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
           ✿
         </div>
-        <h1 className="title" style={{ fontSize: '32px', marginBottom: '12px' }}>Serene</h1>
+        <h1 className="title" style={{ fontSize: '32px', marginBottom: '12px' }}>
+          myMood
+        </h1>
         <p className="subtitle" style={{ maxWidth: '280px', margin: '0 auto' }}>
           Welcome to your space of calm. Take a moment to check in with yourself.
         </p>
       </div>
 
-      <div style={{ zIndex: 1 }}>
-        <button 
-          onClick={() => setShowChooser(true)}
-          className="btn btn-primary"
+      <div style={{ zIndex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <button
+          type="button"
+          onClick={() => void handleSignInClick()}
+          disabled={isSigningIn}
+          className="btn btn-dark"
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '12px',
-            backgroundColor: 'var(--text-main)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
           }}
         >
-          {/* Custom minimal Google logo */}
-          <svg width="18" height="18" viewBox="0 0 24 24" style={{ marginRight: '4px' }}>
-            <path fill="#ffffff" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.147 4.114-3.342 0-6.058-2.716-6.058-6.057 0-3.342 2.716-6.058 6.058-6.058 1.455 0 2.784.516 3.825 1.37l3.058-3.057C18.99 2.923 15.82 1.8 12.24 1.8 6.474 1.8 1.8 6.474 1.8 12.24S6.474 22.68 12.24 22.68c5.766 0 10.44-4.674 10.44-10.44 0-.648-.058-1.286-.18-1.955H12.24z"/>
+          {/* Official 4-color Google G icon */}
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="#4285F4"
+              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+            />
           </svg>
-          Sign In with Google
+          <span>{isSigningIn ? 'Signing in...' : 'Sign In with Google'}</span>
         </button>
+
+        {authError && (
+          <p
+            role="alert"
+            style={{
+              fontSize: '13px',
+              color: '#eb5e55',
+              textAlign: 'center',
+              lineHeight: 1.4,
+            }}
+          >
+            {authError}
+          </p>
+        )}
+
+        {!isFirebaseEnabled && (
+          <div
+            style={{
+              fontSize: '12px',
+              color: 'var(--text-sub)',
+              textAlign: 'center',
+              padding: '8px 12px',
+              borderRadius: '12px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            Demo Mode (add Firebase config to enable Google Sign-In &amp; Cloud Sync)
+          </div>
+        )}
       </div>
 
-      {/* Account Chooser Dialog (Google OAuth Simulation) */}
+      {/* Demo Account Chooser Dialog when Firebase env vars are not configured */}
       {showChooser && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.4)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '24px',
-          zIndex: 10
-        }} onClick={() => setShowChooser(false)}>
-          
-          <div style={{
-            background: 'var(--bg-card-solid)',
-            borderRadius: '24px',
-            width: '100%',
-            maxWidth: '360px',
-            padding: '28px',
-            boxShadow: 'var(--shadow-lg)',
-            border: '1px solid var(--border-color)'
-          }} className="animate-scale-in" onClick={(e) => e.stopPropagation()}>
-            
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="demo-chooser-title"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            zIndex: 10,
+          }}
+          onClick={() => setShowChooser(false)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card-solid)',
+              borderRadius: '24px',
+              width: '100%',
+              maxWidth: '360px',
+              padding: '28px',
+              boxShadow: 'var(--shadow-lg)',
+              border: '1px solid var(--border-color)',
+            }}
+            className="animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              {/* Google logo text */}
-              <div style={{ 
-                fontFamily: 'Product Sans, Arial, sans-serif', 
-                fontSize: '22px', 
-                fontWeight: 'bold', 
-                marginBottom: '8px',
-                letterSpacing: '-0.5px' 
-              }}>
+              <div
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 'bold',
+                  marginBottom: '8px',
+                  letterSpacing: '-0.5px',
+                }}
+              >
                 <span style={{ color: '#4285F4' }}>G</span>
                 <span style={{ color: '#EA4335' }}>o</span>
                 <span style={{ color: '#FBBC05' }}>o</span>
@@ -147,15 +239,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 <span style={{ color: '#34A853' }}>l</span>
                 <span style={{ color: '#EA4335' }}>e</span>
               </div>
-              <h2 style={{ fontSize: '18px', fontWeight: 500, color: 'var(--text-main)' }}>Choose an account</h2>
-              <p style={{ fontSize: '13px', color: 'var(--text-sub)' }}>to continue to Serene</p>
+              <h2
+                id="demo-chooser-title"
+                style={{ fontSize: '18px', fontWeight: 500, color: 'var(--text-main)' }}
+              >
+                Choose a demo account
+              </h2>
+              <p style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
+                to continue to myMood
+              </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {mockAccounts.map((acc, index) => (
+              {DEMO_ACCOUNTS.map((acc) => (
                 <button
-                  key={index}
-                  onClick={() => handleSelectAccount(acc)}
+                  key={acc.uid}
+                  type="button"
+                  onClick={() => handleSelectDemoAccount(acc)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -168,34 +268,56 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                     width: '100%',
                     textAlign: 'left',
                     fontFamily: 'inherit',
-                    transition: 'background 0.2s ease'
+                    transition: 'background 0.2s ease',
                   }}
                   className="btn-secondary"
                 >
-                  <img 
-                    src={acc.avatar} 
-                    alt={acc.name} 
+                  <div
                     style={{
                       width: '40px',
                       height: '40px',
                       borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '1px solid rgba(0,0,0,0.05)'
-                    }} 
-                  />
+                      background: 'var(--accent-light)',
+                      color: 'var(--accent)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 600,
+                      fontSize: '16px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {acc.name.charAt(0).toUpperCase()}
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)' }}>{acc.name}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-sub)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{acc.email}</span>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-main)' }}>
+                      {acc.name}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--text-sub)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {acc.email}
+                    </span>
                   </div>
                 </button>
               ))}
 
               <button
-                onClick={() => handleSelectAccount({
-                  name: 'Guest User',
-                  email: 'guest@feelings.app',
-                  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80'
-                })}
+                type="button"
+                onClick={() =>
+                  handleSelectDemoAccount({
+                    uid: 'demo-guest',
+                    name: 'Guest User',
+                    email: 'guest@feelings.app',
+                    avatar: '',
+                    isDemo: true,
+                  })
+                }
                 style={{
                   padding: '12px',
                   borderRadius: '14px',
@@ -204,21 +326,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                   color: 'var(--text-sub)',
                   cursor: 'pointer',
                   fontSize: '13px',
-                  fontWeight: 500
+                  fontWeight: 500,
                 }}
               >
                 Use guest account
               </button>
             </div>
-            
-            <p style={{
-              fontSize: '11px',
-              color: 'var(--text-muted)',
-              marginTop: '24px',
-              textAlign: 'center',
-              lineHeight: 1.4
-            }}>
-              To continue, Google will share your name, email address, profile picture, and language preference with Serene.
+
+            <p
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-muted)',
+                marginTop: '24px',
+                textAlign: 'center',
+                lineHeight: 1.4,
+              }}
+            >
+              Local demo mode stores entries in your browser. Configure Firebase in{' '}
+              <code>web/.env.local</code> for Google Auth and Cloud Firestore.
             </p>
           </div>
         </div>

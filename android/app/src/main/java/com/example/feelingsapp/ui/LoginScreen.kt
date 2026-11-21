@@ -1,8 +1,6 @@
 package com.example.feelingsapp.ui
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -12,8 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,6 +27,7 @@ fun LoginScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .safeDrawingPadding()
             .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -39,7 +36,6 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Serene Logo Icon
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -53,7 +49,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "wof.",
+                text = "myMood",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -117,13 +113,12 @@ fun LoginScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "to continue to Serene",
+                        text = "to continue to myMood",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                     )
 
-                    // Account List
                     AccountItem(
                         name = "Gary",
                         email = "gary@gmail.com",
@@ -158,7 +153,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "To continue, Google will share your name, email address, and profile picture with Serene.",
+                        text = "To continue, Google will share your name, email address, and profile picture with myMood.",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center,
@@ -189,7 +184,6 @@ fun AccountItem(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(12.dp)
         ) {
-            // Mock Avatar
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier

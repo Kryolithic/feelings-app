@@ -2,12 +2,13 @@ package com.example.feelingsapp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,9 +27,12 @@ fun ProfileScreen(
     onResetData: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showResetDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp)
     ) {
         Text("Profile", fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -51,7 +55,6 @@ fun ProfileScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(20.dp)
             ) {
-                // Mock Avatar
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -60,7 +63,7 @@ fun ProfileScreen(
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                 ) {
                     Text(
-                        text = user.name.take(1),
+                        text = user.name.take(1).ifEmpty { "M" },
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -90,9 +93,8 @@ fun ProfileScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp)
+                .padding(bottom = 28.dp)
         ) {
-            // Theme setting
             SettingItem(
                 title = "Theme Mode",
                 actionContent = {
@@ -115,15 +117,13 @@ fun ProfileScreen(
                 }
             )
 
-            // Connections setting
             SettingItem(
                 title = "Connections",
                 actionContent = {
-                    Text("Connected", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Local Storage", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             )
 
-            // Password setting
             SettingItem(
                 title = "Password",
                 actionContent = {
@@ -132,11 +132,8 @@ fun ProfileScreen(
             )
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Danger Action button (Reset)
         Button(
-            onClick = onResetData,
+            onClick = { showResetDialog = true },
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
                 contentColor = Color(0xFFEB5E55)
@@ -145,14 +142,13 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
-                .border(1.dp, Color(0xFFEB5E55).copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                .border(1.dp, Color(0xFFEB5E55).copy(alpha = 0.35f), RoundedCornerShape(16.dp))
         ) {
             Text("Reset History", fontSize = 15.sp, fontWeight = FontWeight.Medium)
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Log out button
         Button(
             onClick = onLogout,
             colors = ButtonDefaults.buttonColors(
@@ -166,6 +162,29 @@ fun ProfileScreen(
         ) {
             Text("Log Out", fontSize = 15.sp, fontWeight = FontWeight.Medium)
         }
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset History?") },
+            text = { Text("Are you sure you want to clear your feelings log history? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showResetDialog = false
+                        onResetData()
+                    }
+                ) {
+                    Text("Clear History", color = Color(0xFFEB5E55), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

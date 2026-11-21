@@ -5,21 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.feelingsapp.data.DataRepository
 import com.example.feelingsapp.data.LogEntry
 import com.example.feelingsapp.data.User
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainScreenViewModel(private val repository: DataRepository) : ViewModel() {
-    
+
     val user: StateFlow<User?> = repository.user
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-        
     val logs: StateFlow<List<LogEntry>> = repository.logs
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-        
     val isDarkTheme: StateFlow<Boolean> = repository.isDarkTheme
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun login(newUser: User) {
         viewModelScope.launch {

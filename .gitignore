@@ -1,0 +1,17 @@
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.local
+
+# IDE & OS
+android/.idea/
+android/local.properties
+.DS_Store
+Thumbs.db

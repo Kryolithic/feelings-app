@@ -1,20 +1,19 @@
 package com.example.feelingsapp.ui.main
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.feelingsapp.data.DefaultDataRepository
-import com.example.feelingsapp.ui.LoginScreen
 import com.example.feelingsapp.ui.LoggingWizardFlow
+import com.example.feelingsapp.ui.LoginScreen
 import com.example.feelingsapp.ui.ProfileScreen
 import com.example.feelingsapp.ui.TrendsScreen
 
@@ -34,7 +33,7 @@ fun MainScreen(
             modifier = modifier
         )
     } else {
-        var currentTab by remember { mutableStateOf("home") }
+        var currentTab by rememberSaveable { mutableStateOf("home") }
 
         Scaffold(
             bottomBar = {
@@ -76,7 +75,10 @@ fun MainScreen(
                         user = currentUser,
                         isDarkTheme = isDarkTheme,
                         onToggleTheme = { viewModel.setDarkTheme(!isDarkTheme) },
-                        onLogout = { viewModel.logout() },
+                        onLogout = {
+                            currentTab = "home"
+                            viewModel.logout()
+                        },
                         onResetData = { viewModel.resetLogs() }
                     )
                 }

@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isValidLog(data) {
+      return data.keys().hasAll([
+        'id',
+        'timestamp',
+        'core',
+        'sub1',
+        'sub2',
+        'intensity',
+        'note',
+        'color'
+      ])
+      && data.keys().hasOnly([
+        'id',
+        'timestamp',
+        'core',
+        'sub1',
+        'sub2',
+        'intensity',
+        'note',
+        'color',
+        'createdAt'
+      ])
+      && data.id is string
+      && data.timestamp is string
+      && data.core is string
+      && data.sub1 is string
+      && data.sub2 is string
+      && data.note is string
+      && data.note.size() <= 2000
+      && data.color is string
+      && data.intensity is int
+      && data.intensity >= 1
+      && data.intensity <= 10;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /logs/{logId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidLog(request.resource.data);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

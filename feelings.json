@@ -1,7 +1,7 @@
 {
   "emotions": {
     "Sad": {
-      "color": "hsl(210, 40%, 65%)",
+      "color": "#7da5d9",
       "sub1": {
         "Lonely": ["Isolated", "Abandoned"],
         "Vulnerable": ["Victimised", "Fragile"],
@@ -12,7 +12,7 @@
       }
     },
     "Disgusted": {
-      "color": "hsl(280, 25%, 65%)",
+      "color": "#a48dbd",
       "sub1": {
         "Repelled": ["Horrified", "Hesitant"],
         "Awful": ["Nauseated", "Detestable"],
@@ -21,7 +21,7 @@
       }
     },
     "Angry": {
-      "color": "hsl(5, 45%, 65%)",
+      "color": "#d96259",
       "sub1": {
         "Let down": ["Betrayed", "Resentful"],
         "Humiliated": ["Disrespected", "Ridiculed"],
@@ -34,7 +34,7 @@
       }
     },
     "Fearful": {
-      "color": "hsl(175, 35%, 60%)",
+      "color": "#62c4b8",
       "sub1": {
         "Scared": ["Helpless", "Frightened"],
         "Anxious": ["Overwhelmed", "Worried"],
@@ -45,7 +45,7 @@
       }
     },
     "Bad": {
-      "color": "hsl(140, 30%, 60%)",
+      "color": "#70c292",
       "sub1": {
         "Bored": ["Indifferent", "Apathetic"],
         "Busy": ["Pressured", "Rushed"],
@@ -54,7 +54,7 @@
       }
     },
     "Surprised": {
-      "color": "hsl(35, 55%, 65%)",
+      "color": "#e6af73",
       "sub1": {
         "Startled": ["Shocked", "Dismayed"],
         "Confused": ["Disillusioned", "Perplexed"],
@@ -63,17 +63,17 @@
       }
     },
     "Happy": {
-      "color": "hsl(15, 60%, 70%)",
+      "color": "#f2a380",
       "sub1": {
-        "Playful": ["Cheeky", "Free"],
-        "Content": ["Joyful", "Curious"],
-        "Interested": ["Inquisitive", "Successful"],
-        "Proud": ["Confident", "Respected"],
-        "Accepted": ["Valued", "Courageous"],
-        "Powerful": ["Creative", "Loving"],
-        "Peaceful": ["Thankful", "Sensitive"],
-        "Trusting": ["Intimate", "Hopeful"],
-        "Optimistic": ["Inspired", "Open"]
+        "Playful": ["Aroused", "Cheeky"],
+        "Content": ["Free", "Joyful"],
+        "Interested": ["Curious", "Inquisitive"],
+        "Proud": ["Successful", "Confident"],
+        "Accepted": ["Respected", "Valued"],
+        "Powerful": ["Courageous", "Creative"],
+        "Peaceful": ["Loving", "Thankful"],
+        "Trusting": ["Sensitive", "Intimate"],
+        "Optimistic": ["Hopeful", "Inspired"]
       }
     }
   }
