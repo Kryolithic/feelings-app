@@ -115,7 +115,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           ✿
         </div>
         <h1 className="title" style={{ fontSize: '32px', marginBottom: '12px' }}>
-          myMood
+          moody
         </h1>
         <p className="subtitle" style={{ maxWidth: '280px', margin: '0 auto' }}>
           Welcome to your space of calm. Take a moment to check in with yourself.

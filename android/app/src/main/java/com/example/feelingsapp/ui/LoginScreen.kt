@@ -76,7 +76,7 @@ fun LoginScreen(
 
             Text(
                 fontFamily = fontFamily,
-                text = "myMood",
+                text = "moody",
                 style = MaterialTheme.typography.titleLarge,
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
