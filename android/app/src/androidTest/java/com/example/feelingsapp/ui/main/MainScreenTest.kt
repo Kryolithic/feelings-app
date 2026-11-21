@@ -26,7 +26,7 @@ class MainScreenTest {
 
   @Test
   fun loggedOut_showsBrandingAndSignIn() {
-    composeTestRule.onNodeWithText("myMood").assertExists()
+    composeTestRule.onNodeWithText("moody").assertExists()
     composeTestRule.onNodeWithText("Sign In").assertExists()
   }
 }

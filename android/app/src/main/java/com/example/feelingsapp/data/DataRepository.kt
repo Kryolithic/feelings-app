@@ -155,7 +155,7 @@ class DefaultDataRepository(context: Context) : DataRepository {
 
     private fun mapFirebaseUser(fbUser: FirebaseUser): User {
         return User(
-            name = fbUser.displayName?.takeIf { it.isNotBlank() } ?: "myMood User",
+            name = fbUser.displayName?.takeIf { it.isNotBlank() } ?: "moody User",
             email = fbUser.email?.trim() ?: "",
             avatar = fbUser.photoUrl?.toString() ?: "",
             uid = fbUser.uid,

@@ -1,4 +1,4 @@
-# myMood Web App
+# moody Web App
 
 A minimal, calming emotion tracking web application built with React, TypeScript, Vite, and Firebase (Google Authentication, Cloud Firestore, and Firebase Hosting), with automatic local demo fallback when Firebase environment variables are not set.
 

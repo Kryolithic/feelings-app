@@ -246,7 +246,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 Choose a demo account
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-sub)' }}>
-                to continue to myMood
+                to continue to moody
               </p>
             </div>
 

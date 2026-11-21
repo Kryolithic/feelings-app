@@ -221,7 +221,7 @@ fun LoginScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "to continue to myMood",
+                        text = "to continue to moody",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
@@ -261,7 +261,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "To continue, Google will share your name, email address, and profile picture with myMood.",
+                        text = "To continue, Google will share your name, email address, and profile picture with moody.",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center,

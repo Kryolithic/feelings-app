@@ -14,7 +14,7 @@ import { DEMO_USER_KEY, safeJsonParse } from './storage';
 function mapFirebaseUser(fbUser: FirebaseUser): User {
   return {
     uid: fbUser.uid,
-    name: fbUser.displayName?.trim() || 'myMood User',
+    name: fbUser.displayName?.trim() || 'moody User',
     email: fbUser.email?.trim() || '',
     avatar: fbUser.photoURL?.trim() || '',
     isDemo: false,

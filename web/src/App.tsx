@@ -131,7 +131,7 @@ function App() {
           fontSize: '15px',
         }}
       >
-        Loading myMood...
+        Loading moody...
       </div>
     );
   }
