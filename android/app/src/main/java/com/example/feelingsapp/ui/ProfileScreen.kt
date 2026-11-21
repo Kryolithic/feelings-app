@@ -120,7 +120,11 @@ fun ProfileScreen(
             SettingItem(
                 title = "Connections",
                 actionContent = {
-                    Text("Local Storage", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = if (user.isDemo) "Local Demo Mode" else "Firebase Cloud Sync",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             )
 

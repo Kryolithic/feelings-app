@@ -1,23 +1,170 @@
 rules_version = '2';
 
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// This security rules file assumes the following data structures:
+//
+// Collection: users
+// Document ID: {userId} (Firebase Auth UID)
+// Written via setDoc(..., { merge: true }) from:
+//   1. authService.upsertUserProfile: { uid, name, email, avatar, updatedAt }
+//   2. logsService.saveThemePreference: { darkTheme, updatedAt }
+// Note: A newly signed-in user may toggle theme before upsertUserProfile
+// completes, so either { darkTheme, updatedAt } or the profile fields
+// { uid, name, email, avatar, updatedAt } (or both merged) may exist.
+// Fields:
+//   - uid: string (optional until profile sync, immutable once set; must equal
+//     request.auth.uid; length 1..128)
+//   - name: string (optional until profile sync, required with profile fields;
+//     length 1..200)
+//   - email: string (optional until profile sync, required with profile fields;
+//     empty string or valid email, length 0..320)
+//   - avatar: string (optional until profile sync, required with profile fields;
+//     empty string or http/https URL, length 0..2048)
+//   - darkTheme: bool (optional until theme toggle; boolean)
+//   - updatedAt: timestamp (required on create and update; must equal request.time)
+//
+// Collection: users/{userId}/logs
+// Document ID: {logId} (matches LogEntry.id, e.g., UUID string)
+// Queried via: orderBy('timestamp', 'desc')
+// Deleted via: chunked batch delete in clearAllLogs
+// Fields:
+//   - id: string (required, immutable; must equal {logId}; length 1..128)
+//   - timestamp: string (required; ISO 8601 UTC/offset string, length 20..35)
+//   - core: string (required; enum: 'Sad', 'Disgusted', 'Angry', 'Fearful',
+//     'Bad', 'Surprised', 'Happy')
+//   - sub1: string (required; length 1..50)
+//   - sub2: string (required; length 1..50)
+//   - intensity: int (required; range 1..10)
+//   - note: string (required; length 0..2000)
+//   - color: string (required; hex color #RGB, #RRGGBB, or #RRGGBBAA; length 4..9)
+//   - createdAt: timestamp (required, immutable; must equal request.time on create)
+//
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
+    // Check if authenticated user owns the path {userId}
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Verify UID hasn't been tampered with on create (allows theme-first create without uid)
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+             (isAuthenticated() && request.resource.data.uid == request.auth.uid);
+    }
+
+    // Ensure uid field is immutable once set, and if newly added matches auth.uid
+    function uidNotModified() {
+      return (!('uid' in resource.data) &&
+              (!('uid' in request.resource.data) ||
+               (isAuthenticated() && request.resource.data.uid == request.auth.uid))) ||
+             ('uid' in resource.data &&
+              'uid' in request.resource.data &&
+              request.resource.data.uid == resource.data.uid);
+    }
+
+    // Validate required fields exist
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Validate document contains only allowed fields
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validate string length
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+             request.resource.data[field].size() >= minLen &&
+             request.resource.data[field].size() <= maxLen;
+    }
+
+    // Validate URL format (must start with https:// or http://)
+    function isValidUrl(url) {
+      return url is string &&
+             (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // Validate email format
+    function isValidEmail(email) {
+      return email is string &&
+             email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // Validate ISO 8601 date string format (YYYY-MM-DDTHH:MM:SS(.fff)?(Z|±HH:MM))
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+             dateStr.size() >= 20 &&
+             dateStr.size() <= 35 &&
+             dateStr.matches("^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])T([01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(\\.\\d{1,9})?(Z|[+-]([01]\\d|2[0-3]):[0-5]\\d)$");
+    }
+
+    // Validate CSS hex color (#RGB, #RRGGBB, or #RRGGBBAA)
+    function isValidHexColor(color) {
+      return color is string &&
+             color.size() >= 4 &&
+             color.size() <= 9 &&
+             color.matches("^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$");
+    }
+
+    // Validate immutable fields did not change on update
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    // Validate user profile & preferences document on both create and update
+    function isValidUser(data) {
+      let allowedFields = ['uid', 'name', 'email', 'avatar', 'darkTheme', 'updatedAt'];
+      let profileFields = ['uid', 'name', 'email', 'avatar'];
+      return hasOnlyAllowedFields(allowedFields) &&
+             hasRequiredFields(['updatedAt']) &&
+             data.updatedAt is timestamp &&
+             data.updatedAt == request.time &&
+             (('darkTheme' in data) || hasRequiredFields(profileFields)) &&
+             (!data.keys().hasAny(profileFields) || hasRequiredFields(profileFields)) &&
+             (!('uid' in data) || (
+               validStringLength('uid', 1, 128) &&
+               isAuthenticated() &&
+               data.uid == request.auth.uid
+             )) &&
+             (!('name' in data) || validStringLength('name', 1, 200)) &&
+             (!('email' in data) || (
+               validStringLength('email', 0, 320) &&
+               (data.email == '' ||
+                isValidEmail(data.email) ||
+                (isAuthenticated() &&
+                 ('email' in request.auth.token) &&
+                 data.email == request.auth.token.email))
+             )) &&
+             (!('avatar' in data) || (
+               validStringLength('avatar', 0, 2048) &&
+               (data.avatar == '' || isValidUrl(data.avatar))
+             )) &&
+             (!('darkTheme' in data) || data.darkTheme is bool);
+    }
+
+    // Validate feeling log entry document on both create and update
     function isValidLog(data) {
-      return data.keys().hasAll([
-        'id',
-        'timestamp',
-        'core',
-        'sub1',
-        'sub2',
-        'intensity',
-        'note',
-        'color'
-      ])
-      && data.keys().hasOnly([
+      let requiredFields = [
         'id',
         'timestamp',
         'core',
@@ -27,29 +174,63 @@ service cloud.firestore {
         'note',
         'color',
         'createdAt'
-      ])
-      && data.id is string
-      && data.timestamp is string
-      && data.core is string
-      && data.sub1 is string
-      && data.sub2 is string
-      && data.note is string
-      && data.note.size() <= 2000
-      && data.color is string
-      && data.intensity is int
-      && data.intensity >= 1
-      && data.intensity <= 10;
+      ];
+      let validCores = [
+        'Sad',
+        'Disgusted',
+        'Angry',
+        'Fearful',
+        'Bad',
+        'Surprised',
+        'Happy'
+      ];
+      return hasRequiredFields(requiredFields) &&
+             hasOnlyAllowedFields(requiredFields) &&
+             validStringLength('id', 1, 128) &&
+             isValidDateString(data.timestamp) &&
+             data.core is string &&
+             data.core in validCores &&
+             validStringLength('sub1', 1, 50) &&
+             validStringLength('sub2', 1, 50) &&
+             data.intensity is int &&
+             data.intensity >= 1 &&
+             data.intensity <= 10 &&
+             validStringLength('note', 0, 2000) &&
+             isValidHexColor(data.color) &&
+             data.createdAt is timestamp;
     }
 
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
 
+    // User profile & preferences: strictly owner-only (contains PII: email, name, avatar)
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+                       uidUnchanged() &&
+                       isValidUser(request.resource.data);
+      allow update: if isOwner(userId) &&
+                       uidNotModified() &&
+                       isValidUser(request.resource.data) &&
+                       request.resource.data.keys().hasAll(resource.data.keys());
+      allow delete: if false;
+
+      // User's private mood logs subcollection
       match /logs/{logId} {
         allow read, delete: if isOwner(userId);
-        allow create, update: if isOwner(userId) && isValidLog(request.resource.data);
+        allow create: if isOwner(userId) &&
+                         isValidLog(request.resource.data) &&
+                         request.resource.data.id == logId &&
+                         request.resource.data.createdAt == request.time;
+        allow update: if isOwner(userId) &&
+                         isValidLog(request.resource.data) &&
+                         request.resource.data.id == logId &&
+                         areImmutableFieldsUnchanged(['id', 'createdAt']);
       }
     }
 
+    // Default deny for all other paths
     match /{document=**} {
       allow read, write: if false;
     }

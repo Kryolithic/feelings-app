@@ -25,9 +25,9 @@ class MainScreenTest {
   }
 
   @Test
-  fun loggedOut_showsBrandingAndGoogleSignIn() {
+  fun loggedOut_showsBrandingAndSignIn() {
     composeTestRule.onNodeWithText("myMood").assertExists()
-    composeTestRule.onNodeWithText("Sign In with Google").assertExists()
+    composeTestRule.onNodeWithText("Sign In").assertExists()
   }
 }
 
@@ -41,6 +41,11 @@ private class FakeTestRepository : DataRepository {
   private val _isDarkTheme = MutableStateFlow(false)
   override val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
+  override val isFirebaseConfigured: Boolean = false
+
+  private val _syncError = MutableStateFlow<String?>(null)
+  override val syncError: StateFlow<String?> = _syncError.asStateFlow()
+
   override suspend fun saveLog(log: LogEntry) {
     _logs.value = listOf(log) + _logs.value
   }
@@ -53,6 +58,10 @@ private class FakeTestRepository : DataRepository {
     _user.value = newUser
   }
 
+  override suspend fun signInWithGoogleIdToken(idToken: String): Result<User> {
+    return Result.failure(IllegalStateException("Not configured in test"))
+  }
+
   override suspend fun logout() {
     _user.value = null
   }
@@ -60,4 +69,6 @@ private class FakeTestRepository : DataRepository {
   override suspend fun setDarkTheme(enabled: Boolean) {
     _isDarkTheme.value = enabled
   }
+
+  override fun clear() {}
 }

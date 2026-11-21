@@ -85,5 +85,31 @@ dependencies {
   // Serialization and Icons
   implementation(libs.kotlinx.serialization.json)
   implementation(libs.androidx.material.icons.core)
+
+    //Google fonts
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.11.4")
+
+    //Firebase auth UI
+    implementation("com.firebaseui:firebase-ui-auth:9.1.1")
+
+    //Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
+
+    //Firebase Auth
+    implementation("com.google.firebase:firebase-auth")
+
+    //Credential manager library
+    implementation("androidx.credentials:credentials:1.6.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
+
+    // Cloud Firestore (shared with Web app)
+    implementation("com.google.firebase:firebase-firestore")
+    implementation(libs.kotlinx.coroutines.play.services)
+
+}
+
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 

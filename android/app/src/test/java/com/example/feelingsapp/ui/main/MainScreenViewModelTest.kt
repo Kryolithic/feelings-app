@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -53,6 +54,19 @@ class MainScreenViewModelTest {
     viewModel.logout()
     advanceUntilIdle()
     assertNull(viewModel.user.value)
+  }
+
+  @Test
+  fun signInWithGoogleIdToken_updatesFirebaseUserState() = runTest(testDispatcher) {
+    val repo = FakeFeelingsRepository()
+    val viewModel = MainScreenViewModel(repo)
+
+    val result = viewModel.signInWithGoogleIdToken("sample-id-token")
+    assertTrue(result.isSuccess)
+    val signedIn = viewModel.user.value
+    assertNotNull(signedIn)
+    assertFalse(signedIn!!.isDemo)
+    assertTrue(signedIn.uid.isNotBlank())
   }
 
   @Test
@@ -121,6 +135,11 @@ private class FakeFeelingsRepository : DataRepository {
   private val _isDarkTheme = MutableStateFlow(false)
   override val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
+  override val isFirebaseConfigured: Boolean = false
+
+  private val _syncError = MutableStateFlow<String?>(null)
+  override val syncError: StateFlow<String?> = _syncError.asStateFlow()
+
   override suspend fun saveLog(log: LogEntry) {
     _logs.value = listOf(log) + _logs.value
   }
@@ -133,6 +152,18 @@ private class FakeFeelingsRepository : DataRepository {
     _user.value = newUser
   }
 
+  override suspend fun signInWithGoogleIdToken(idToken: String): Result<User> {
+    val firebaseUser = User(
+      name = "Cloud User",
+      email = "cloud@feelings.app",
+      avatar = "",
+      uid = "uid-$idToken",
+      isDemo = false
+    )
+    _user.value = firebaseUser
+    return Result.success(firebaseUser)
+  }
+
   override suspend fun logout() {
     _user.value = null
     _logs.value = emptyList()
@@ -141,4 +172,6 @@ private class FakeFeelingsRepository : DataRepository {
   override suspend fun setDarkTheme(enabled: Boolean) {
     _isDarkTheme.value = enabled
   }
+
+  override fun clear() {}
 }

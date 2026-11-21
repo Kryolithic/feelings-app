@@ -13,11 +13,17 @@ class MainScreenViewModel(private val repository: DataRepository) : ViewModel() 
     val user: StateFlow<User?> = repository.user
     val logs: StateFlow<List<LogEntry>> = repository.logs
     val isDarkTheme: StateFlow<Boolean> = repository.isDarkTheme
+    val isFirebaseConfigured: Boolean = repository.isFirebaseConfigured
+    val syncError: StateFlow<String?> = repository.syncError
 
     fun login(newUser: User) {
         viewModelScope.launch {
             repository.login(newUser)
         }
+    }
+
+    suspend fun signInWithGoogleIdToken(idToken: String): Result<User> {
+        return repository.signInWithGoogleIdToken(idToken)
     }
 
     fun logout() {
@@ -42,5 +48,10 @@ class MainScreenViewModel(private val repository: DataRepository) : ViewModel() 
         viewModelScope.launch {
             repository.setDarkTheme(enabled)
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        repository.clear()
     }
 }
