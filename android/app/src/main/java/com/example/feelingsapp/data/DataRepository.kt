@@ -4,9 +4,11 @@ import android.content.Context
 import com.example.feelingsapp.notifications.MoodReminderScheduler
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
+import com.google.firebase.auth.userProfileChangeRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -45,7 +47,8 @@ data class User(
     val email: String,
     val avatar: String,
     val uid: String = "",
-    val isDemo: Boolean = true
+    val isDemo: Boolean = true,
+    val authProvider: String = "demo"
 )
 
 data class ReminderSettings(
@@ -128,6 +131,9 @@ interface DataRepository {
     suspend fun resetLogs()
     suspend fun login(newUser: User)
     suspend fun signInWithGoogleIdToken(idToken: String): Result<User>
+    suspend fun signInWithEmail(email: String, password: String): Result<User>
+    suspend fun signUpWithEmail(email: String, password: String, displayName: String): Result<User>
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit>
     suspend fun logout()
     suspend fun setDarkTheme(enabled: Boolean)
     suspend fun updateReminderSettings(settings: ReminderSettings)
@@ -212,14 +218,75 @@ class DefaultDataRepository(context: Context) : DataRepository {
         }
     }
 
-    private fun mapFirebaseUser(fbUser: FirebaseUser): User {
+    private fun resolveAuthProvider(fbUser: FirebaseUser): String {
+        val providers = fbUser.providerData.map { it.providerId }
+        return when {
+            providers.contains("apple.com") -> "apple"
+            providers.contains("google.com") -> "google"
+            providers.contains("password") -> "password"
+            else -> "password"
+        }
+    }
+
+    private fun deriveDisplayName(
+        displayName: String?,
+        email: String?,
+        overrideName: String? = null
+    ): String {
+        val candidate = overrideName?.trim()?.takeIf { it.isNotEmpty() }
+            ?: displayName?.trim()?.takeIf { it.isNotEmpty() }
+            ?: email?.substringBefore("@")?.trim()?.takeIf { it.isNotEmpty() }
+            ?: "moody User"
+        return candidate.take(200)
+    }
+
+    private fun mapFirebaseUser(fbUser: FirebaseUser, overrideName: String? = null): User {
         return User(
-            name = fbUser.displayName?.takeIf { it.isNotBlank() } ?: "moody User",
+            name = deriveDisplayName(fbUser.displayName, fbUser.email, overrideName),
             email = fbUser.email?.trim() ?: "",
             avatar = fbUser.photoUrl?.toString() ?: "",
             uid = fbUser.uid,
-            isDemo = false
+            isDemo = false,
+            authProvider = resolveAuthProvider(fbUser)
         )
+    }
+
+    private suspend fun upsertFirestoreUserProfile(mapped: User) {
+        try {
+            firestore?.collection("users")
+                ?.document(mapped.uid)
+                ?.set(
+                    mapOf(
+                        "uid" to mapped.uid,
+                        "name" to mapped.name.take(200),
+                        "email" to mapped.email.take(320),
+                        "avatar" to mapped.avatar.take(2048),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    ),
+                    SetOptions.merge()
+                )
+                ?.await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Best-effort profile sync
+        }
+    }
+
+    private fun friendlyAuthErrorMessage(e: Exception): String {
+        val code = (e as? FirebaseAuthException)?.errorCode
+        return when (code) {
+            "ERROR_INVALID_CREDENTIAL",
+            "ERROR_WRONG_PASSWORD",
+            "ERROR_USER_NOT_FOUND" -> "Incorrect email or password."
+            "ERROR_EMAIL_ALREADY_IN_USE" -> "An account with this email already exists."
+            "ERROR_INVALID_EMAIL" -> "Please enter a valid email address."
+            "ERROR_WEAK_PASSWORD" -> "Password must be at least 6 characters."
+            "ERROR_OPERATION_NOT_ALLOWED" ->
+                "Email/Password sign-in is not enabled yet in Firebase Authentication Console."
+            "ERROR_TOO_MANY_REQUESTS" -> "Too many attempts. Please wait a moment and try again."
+            else -> e.localizedMessage ?: "Authentication failed. Please try again."
+        }
     }
 
     private fun attachFirestoreLogsListener(uid: String) {
@@ -275,32 +342,77 @@ class DefaultDataRepository(context: Context) : DataRepository {
             val fbUser = result.user
                 ?: return Result.failure(IllegalStateException("Google sign-in returned no user."))
             val mapped = mapFirebaseUser(fbUser)
-
-            try {
-                firestore?.collection("users")
-                    ?.document(fbUser.uid)
-                    ?.set(
-                        mapOf(
-                            "uid" to mapped.uid,
-                            "name" to mapped.name.take(200),
-                            "email" to mapped.email.take(320),
-                            "avatar" to mapped.avatar.take(2048),
-                            "updatedAt" to FieldValue.serverTimestamp()
-                        ),
-                        SetOptions.merge()
-                    )
-                    ?.await()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                // Best-effort profile sync
-            }
-
+            upsertFirestoreUserProfile(mapped)
             Result.success(mapped)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(IllegalStateException(friendlyAuthErrorMessage(e), e))
+        }
+    }
+
+    override suspend fun signInWithEmail(email: String, password: String): Result<User> {
+        val auth = firebaseAuth
+            ?: return Result.failure(IllegalStateException("Firebase is not configured."))
+        return try {
+            val result = auth.signInWithEmailAndPassword(email.trim(), password).await()
+            val fbUser = result.user
+                ?: return Result.failure(IllegalStateException("Email sign-in returned no user."))
+            val mapped = mapFirebaseUser(fbUser)
+            upsertFirestoreUserProfile(mapped)
+            Result.success(mapped)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException(friendlyAuthErrorMessage(e), e))
+        }
+    }
+
+    override suspend fun signUpWithEmail(
+        email: String,
+        password: String,
+        displayName: String
+    ): Result<User> {
+        val auth = firebaseAuth
+            ?: return Result.failure(IllegalStateException("Firebase is not configured."))
+        return try {
+            val result = auth.createUserWithEmailAndPassword(email.trim(), password).await()
+            val fbUser = result.user
+                ?: return Result.failure(IllegalStateException("Account creation returned no user."))
+            val trimmedName = displayName.trim()
+            if (trimmedName.isNotEmpty()) {
+                try {
+                    val profileUpdates = userProfileChangeRequest {
+                        this.displayName = trimmedName
+                    }
+                    fbUser.updateProfile(profileUpdates).await()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Display name is also derived during Firestore profile upsert
+                }
+            }
+            val mapped = mapFirebaseUser(fbUser, overrideName = trimmedName.ifEmpty { null })
+            _user.value = mapped
+            upsertFirestoreUserProfile(mapped)
+            Result.success(mapped)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException(friendlyAuthErrorMessage(e), e))
+        }
+    }
+
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        val auth = firebaseAuth
+            ?: return Result.failure(IllegalStateException("Firebase is not configured."))
+        return try {
+            auth.sendPasswordResetEmail(email.trim()).await()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(IllegalStateException(friendlyAuthErrorMessage(e), e))
         }
     }
 

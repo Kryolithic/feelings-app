@@ -4,6 +4,7 @@ export interface User {
   email: string;
   avatar: string;
   isDemo?: boolean;
+  authProvider?: 'google' | 'password' | 'apple' | 'demo';
 }
 
 export interface LogEntry {

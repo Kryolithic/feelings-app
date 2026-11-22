@@ -45,6 +45,32 @@ final class MoodyStore {
         return result
     }
 
+    func signInWithEmail(email: String, password: String) async -> Result<MoodyUser, Error> {
+        let result = await repository.signInWithEmail(email: email, password: password)
+        syncFromRepository()
+        return result
+    }
+
+    func signUpWithEmail(email: String, password: String, displayName: String) async -> Result<MoodyUser, Error> {
+        let result = await repository.signUpWithEmail(email: email, password: password, displayName: displayName)
+        syncFromRepository()
+        return result
+    }
+
+    func sendPasswordReset(email: String) async -> Result<Void, Error> {
+        await repository.sendPasswordReset(email: email)
+    }
+
+    func signInWithApple(
+        idToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async -> Result<MoodyUser, Error> {
+        let result = await repository.signInWithApple(idToken: idToken, rawNonce: rawNonce, fullName: fullName)
+        syncFromRepository()
+        return result
+    }
+
     func logout() async {
         await repository.logout()
         syncFromRepository()

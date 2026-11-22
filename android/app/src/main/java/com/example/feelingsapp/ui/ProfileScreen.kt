@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import com.example.feelingsapp.data.ReminderSettings
 import com.example.feelingsapp.data.User
 import com.example.feelingsapp.notifications.MoodReminderScheduler
+import kotlinx.coroutines.launch
 
 private fun openAppNotificationSettings(context: Context) {
     val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -54,16 +55,21 @@ fun ProfileScreen(
     reminderSettings: ReminderSettings,
     onToggleTheme: () -> Unit,
     onUpdateReminderSettings: (ReminderSettings) -> Unit,
+    onSendPasswordReset: suspend (String) -> Result<Unit> = {
+        Result.failure(IllegalStateException("Firebase is not configured"))
+    },
     onLogout: () -> Unit,
     onResetData: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var showResetDialog by remember { mutableStateOf(false) }
     var showCustomIntervalDialog by remember { mutableStateOf(false) }
     var permissionDeniedNotice by remember { mutableStateOf(false) }
     var reminderFeedback by remember { mutableStateOf<String?>(null) }
     var pendingPermissionAction by remember { mutableStateOf<String?>(null) }
+    var passwordResetFeedback by remember { mutableStateOf<String?>(null) }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -257,7 +263,56 @@ fun ProfileScreen(
             SettingItem(
                 title = "Password",
                 actionContent = {
-                    Text("Managed by Google", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    when {
+                        user.isDemo -> Text(
+                            "Local Demo Account",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        user.authProvider == "apple" -> Text(
+                            "Managed by Apple",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        user.authProvider == "password" -> Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = passwordResetFeedback ?: "Email & Password",
+                                fontSize = 13.sp,
+                                color = if (passwordResetFeedback == "Reset email sent") {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                            if (user.email.isNotBlank()) {
+                                TextButton(
+                                    onClick = {
+                                        passwordResetFeedback = null
+                                        coroutineScope.launch {
+                                            val result = onSendPasswordReset(user.email)
+                                            passwordResetFeedback = if (result.isSuccess) {
+                                                "Reset email sent"
+                                            } else {
+                                                result.exceptionOrNull()?.localizedMessage ?: "Reset failed"
+                                            }
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(30.dp)
+                                ) {
+                                    Text("Reset", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                        else -> Text(
+                            "Managed by Google",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             )
         }

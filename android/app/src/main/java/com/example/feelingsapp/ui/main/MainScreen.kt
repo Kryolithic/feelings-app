@@ -40,7 +40,12 @@ fun MainScreen(
             modifier = modifier,
             isDarkTheme = isDarkTheme,
             isFirebaseConfigured = viewModel.isFirebaseConfigured,
-            onGoogleIdToken = { viewModel.signInWithGoogleIdToken(it) }
+            onGoogleIdToken = { viewModel.signInWithGoogleIdToken(it) },
+            onEmailSignIn = { email, password -> viewModel.signInWithEmail(email, password) },
+            onEmailSignUp = { email, password, displayName ->
+                viewModel.signUpWithEmail(email, password, displayName)
+            },
+            onSendPasswordReset = { email -> viewModel.sendPasswordResetEmail(email) }
         )
     } else {
         var currentTab by rememberSaveable { mutableStateOf("home") }
@@ -101,6 +106,7 @@ fun MainScreen(
                             reminderSettings = reminderSettings,
                             onToggleTheme = { viewModel.setDarkTheme(!isDarkTheme) },
                             onUpdateReminderSettings = { viewModel.updateReminderSettings(it) },
+                            onSendPasswordReset = { email -> viewModel.sendPasswordResetEmail(email) },
                             onLogout = {
                                 currentTab = "home"
                                 viewModel.logout()

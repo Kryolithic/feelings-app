@@ -196,6 +196,37 @@ class MainScreenViewModelTest {
     assertFalse(MoodReminderScheduler.isWithinQuietHours(14))
     assertFalse(MoodReminderScheduler.isWithinQuietHours(21))
   }
+
+  @Test
+  fun signUpWithEmail_and_signInWithEmail_updatesUserWithPasswordProvider() = runTest(testDispatcher) {
+    val repo = FakeFeelingsRepository()
+    val viewModel = MainScreenViewModel(repo)
+
+    val signUpRes = viewModel.signUpWithEmail("alex@example.com", "secret123", "Alex")
+    assertTrue(signUpRes.isSuccess)
+    assertEquals("Alex", viewModel.user.value?.name)
+    assertEquals("alex@example.com", viewModel.user.value?.email)
+    assertEquals("password", viewModel.user.value?.authProvider)
+    assertFalse(viewModel.user.value!!.isDemo)
+
+    viewModel.logout()
+    advanceUntilIdle()
+    assertNull(viewModel.user.value)
+
+    val signInRes = viewModel.signInWithEmail("alex@example.com", "secret123")
+    assertTrue(signInRes.isSuccess)
+    assertEquals("alex@example.com", viewModel.user.value?.email)
+    assertEquals("password", viewModel.user.value?.authProvider)
+  }
+
+  @Test
+  fun sendPasswordResetEmail_succeedsForValidEmail() = runTest(testDispatcher) {
+    val repo = FakeFeelingsRepository()
+    val viewModel = MainScreenViewModel(repo)
+
+    val res = viewModel.sendPasswordResetEmail("alex@example.com")
+    assertTrue(res.isSuccess)
+  }
 }
 
 private class FakeFeelingsRepository : DataRepository {
@@ -234,10 +265,45 @@ private class FakeFeelingsRepository : DataRepository {
       email = "cloud@feelings.app",
       avatar = "",
       uid = "uid-$idToken",
-      isDemo = false
+      isDemo = false,
+      authProvider = "google"
     )
     _user.value = firebaseUser
     return Result.success(firebaseUser)
+  }
+
+  override suspend fun signInWithEmail(email: String, password: String): Result<User> {
+    val firebaseUser = User(
+      name = email.substringBefore("@").ifBlank { "moody User" },
+      email = email,
+      avatar = "",
+      uid = "uid-email-$email",
+      isDemo = false,
+      authProvider = "password"
+    )
+    _user.value = firebaseUser
+    return Result.success(firebaseUser)
+  }
+
+  override suspend fun signUpWithEmail(email: String, password: String, displayName: String): Result<User> {
+    val firebaseUser = User(
+      name = displayName.ifBlank { email.substringBefore("@").ifBlank { "moody User" } },
+      email = email,
+      avatar = "",
+      uid = "uid-email-$email",
+      isDemo = false,
+      authProvider = "password"
+    )
+    _user.value = firebaseUser
+    return Result.success(firebaseUser)
+  }
+
+  override suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+    return if (email.contains("@")) {
+      Result.success(Unit)
+    } else {
+      Result.failure(IllegalArgumentException("Invalid email"))
+    }
   }
 
   override suspend fun logout() {

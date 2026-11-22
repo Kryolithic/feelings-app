@@ -20,8 +20,13 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: Moody
+        excludes:
+          - Info.plist
+          - Moody.entitlements
     info:
       path: Moody/Info.plist
+    entitlements:
+      path: Moody/Moody.entitlements
     settings:
       base:
         PRODUCT_NAME: Moody

@@ -67,6 +67,18 @@ private class FakeTestRepository : DataRepository {
     return Result.failure(IllegalStateException("Not configured in test"))
   }
 
+  override suspend fun signInWithEmail(email: String, password: String): Result<User> {
+    return Result.failure(IllegalStateException("Not configured in test"))
+  }
+
+  override suspend fun signUpWithEmail(email: String, password: String, displayName: String): Result<User> {
+    return Result.failure(IllegalStateException("Not configured in test"))
+  }
+
+  override suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+    return Result.failure(IllegalStateException("Not configured in test"))
+  }
+
   override suspend fun logout() {
     _user.value = null
   }

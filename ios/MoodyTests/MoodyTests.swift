@@ -138,6 +138,52 @@ final class MoodyTests: XCTestCase {
         }
         XCTAssertEqual(calendar.component(.hour, from: scheduled[0]), 8)
     }
+
+    func testEmailSignUpSignInPasswordResetAndAppleSignIn() async {
+        let repo = FakeMoodyRepository()
+        let store = MoodyStore(repository: repo)
+
+        let signUpResult = await store.signUpWithEmail(
+            email: "alex@example.com",
+            password: "password123",
+            displayName: "Alex"
+        )
+        XCTAssertNoThrow(try signUpResult.get())
+        XCTAssertEqual(store.user?.name, "Alex")
+        XCTAssertEqual(store.user?.email, "alex@example.com")
+        XCTAssertEqual(store.user?.authProvider, "password")
+        XCTAssertEqual(store.user?.isDemo, false)
+
+        await store.logout()
+        XCTAssertNil(store.user)
+
+        let signInResult = await store.signInWithEmail(email: "alex@example.com", password: "password123")
+        XCTAssertNoThrow(try signInResult.get())
+        XCTAssertEqual(store.user?.authProvider, "password")
+
+        let resetResult = await store.sendPasswordReset(email: "alex@example.com")
+        XCTAssertNoThrow(try resetResult.get())
+
+        var fullName = PersonNameComponents()
+        fullName.givenName = "Jordan"
+        fullName.familyName = "Lee"
+        let appleResult = await store.signInWithApple(
+            idToken: "apple-token",
+            rawNonce: "nonce-123",
+            fullName: fullName
+        )
+        XCTAssertNoThrow(try appleResult.get())
+        XCTAssertEqual(store.user?.authProvider, "apple")
+        XCTAssertEqual(store.user?.name, "Jordan Lee")
+    }
+
+    func testAppleSignInNonceSha256IsValidHex() {
+        let nonce = AppleSignInNonce.random()
+        XCTAssertEqual(nonce.count, 32)
+        let digest = AppleSignInNonce.sha256(nonce)
+        XCTAssertEqual(digest.count, 64)
+        XCTAssertTrue(digest.allSatisfy { $0.isHexDigit && ($0.isLowercase || $0.isNumber) })
+    }
 }
 
 @MainActor
@@ -167,7 +213,65 @@ private final class FakeMoodyRepository: MoodyDataRepository {
     }
 
     func signInWithGoogle() async -> Result<MoodyUser, Error> {
-        let user = MoodyUser(name: "Cloud User", email: "cloud@feelings.app", uid: "uid-test", isDemo: false)
+        let user = MoodyUser(
+            name: "Cloud User",
+            email: "cloud@feelings.app",
+            uid: "uid-test",
+            isDemo: false,
+            authProvider: "google"
+        )
+        currentUser = user
+        onStateChange?()
+        return .success(user)
+    }
+
+    func signInWithEmail(email: String, password: String) async -> Result<MoodyUser, Error> {
+        let name = String(email.split(separator: "@").first ?? "moody User")
+        let user = MoodyUser(
+            name: name,
+            email: email,
+            uid: "uid-email-\(email)",
+            isDemo: false,
+            authProvider: "password"
+        )
+        currentUser = user
+        onStateChange?()
+        return .success(user)
+    }
+
+    func signUpWithEmail(email: String, password: String, displayName: String) async -> Result<MoodyUser, Error> {
+        let resolvedName = displayName.isEmpty ? String(email.split(separator: "@").first ?? "moody User") : displayName
+        let user = MoodyUser(
+            name: resolvedName,
+            email: email,
+            uid: "uid-email-\(email)",
+            isDemo: false,
+            authProvider: "password"
+        )
+        currentUser = user
+        onStateChange?()
+        return .success(user)
+    }
+
+    func sendPasswordReset(email: String) async -> Result<Void, Error> {
+        email.contains("@") ? .success(()) : .failure(MoodySyncError.message("Invalid email"))
+    }
+
+    func signInWithApple(
+        idToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async -> Result<MoodyUser, Error> {
+        let formatted = fullName.map {
+            PersonNameComponentsFormatter.localizedString(from: $0, style: .default)
+        }?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let user = MoodyUser(
+            name: (formatted?.isEmpty == false ? formatted : nil) ?? "Apple User",
+            email: "apple@privaterelay.appleid.com",
+            uid: "uid-apple-\(idToken)",
+            isDemo: false,
+            authProvider: "apple"
+        )
         currentUser = user
         onStateChange?()
         return .success(user)

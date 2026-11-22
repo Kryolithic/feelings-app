@@ -26,19 +26,32 @@ struct MoodyUser: Codable, Equatable, Sendable {
     let avatar: String
     let uid: String
     let isDemo: Bool
+    let authProvider: String
 
     init(
         name: String,
         email: String,
         avatar: String = "",
         uid: String = "",
-        isDemo: Bool = true
+        isDemo: Bool = true,
+        authProvider: String = "demo"
     ) {
         self.name = name
         self.email = email
         self.avatar = avatar
         self.uid = uid
         self.isDemo = isDemo
+        self.authProvider = authProvider
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.email = try container.decode(String.self, forKey: .email)
+        self.avatar = try container.decodeIfPresent(String.self, forKey: .avatar) ?? ""
+        self.uid = try container.decodeIfPresent(String.self, forKey: .uid) ?? ""
+        self.isDemo = try container.decodeIfPresent(Bool.self, forKey: .isDemo) ?? true
+        self.authProvider = try container.decodeIfPresent(String.self, forKey: .authProvider) ?? "demo"
     }
 }
 

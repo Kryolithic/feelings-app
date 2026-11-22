@@ -9,6 +9,7 @@ struct ProfileView: View {
     @State private var showCustomIntervalSheet = false
     @State private var permissionDeniedNotice = false
     @State private var reminderFeedback: String?
+    @State private var passwordResetFeedback: String?
 
     var body: some View {
         ScrollView {
@@ -263,13 +264,58 @@ struct ProfileView: View {
     }
 
     private var passwordSettingCard: some View {
-        HStack {
+        let user = store.user
+        let isDemo = user?.isDemo ?? true
+        let provider = user?.authProvider ?? "demo"
+
+        return HStack(spacing: 10) {
             Text("Password")
                 .font(.system(size: 15, weight: .medium))
             Spacer()
-            Text("Managed by Google")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+            if isDemo {
+                Text("Local Demo Account")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            } else if provider == "apple" {
+                Text("Managed by Apple")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            } else if provider == "password" {
+                HStack(spacing: 8) {
+                    Text(passwordResetFeedback ?? "Email & Password")
+                        .font(.system(size: 13))
+                        .foregroundStyle(
+                            passwordResetFeedback == "Reset email sent"
+                                ? Color.accentColor
+                                : .secondary
+                        )
+                    if let email = user?.email, !email.isEmpty {
+                        Button("Reset") {
+                            passwordResetFeedback = nil
+                            Task {
+                                let res = await store.sendPasswordReset(email: email)
+                                await MainActor.run {
+                                    switch res {
+                                    case .success:
+                                        passwordResetFeedback = "Reset email sent"
+                                    case .failure(let error):
+                                        passwordResetFeedback = error.localizedDescription
+                                    }
+                                }
+                            }
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.accentColor.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+            } else {
+                Text("Managed by Google")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(16)
         .background(Color(.secondarySystemBackground))

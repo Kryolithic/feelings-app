@@ -7,9 +7,12 @@ import { ProfileTab } from './components/ProfileTab';
 import { TrendsTab } from './components/TrendsTab';
 import { isFirebaseConfigured } from './lib/firebase';
 import {
+  sendPasswordResetFirebase,
   signInDemoAccount,
+  signInWithEmailFirebase,
   signInWithGoogleFirebase,
   signOutUser,
+  signUpWithEmailFirebase,
   subscribeToAuth,
 } from './services/authService';
 import {
@@ -80,6 +83,20 @@ function App() {
     await signInWithGoogleFirebase();
   };
 
+  const handleEmailSignIn = async (email: string, password: string) => {
+    const signedIn = await signInWithEmailFirebase(email, password);
+    setUser(signedIn);
+  };
+
+  const handleEmailSignUp = async (email: string, password: string, displayName: string) => {
+    const signedIn = await signUpWithEmailFirebase(email, password, displayName);
+    setUser(signedIn);
+  };
+
+  const handlePasswordReset = async (email: string) => {
+    await sendPasswordResetFirebase(email);
+  };
+
   const handleDemoLogin = (demoUser: User) => {
     signInDemoAccount(demoUser);
     setUser(demoUser);
@@ -143,6 +160,9 @@ function App() {
           isDarkTheme={isDarkTheme}
           isFirebaseEnabled={isFirebaseConfigured}
           onFirebaseSignIn={handleFirebaseSignIn}
+          onEmailSignIn={handleEmailSignIn}
+          onEmailSignUp={handleEmailSignUp}
+          onSendPasswordReset={handlePasswordReset}
           onDemoLogin={handleDemoLogin}
         />
       </div>
@@ -187,6 +207,7 @@ function App() {
             onToggleTheme={toggleTheme}
             onLogout={handleLogout}
             onResetData={handleResetData}
+            onSendPasswordReset={handlePasswordReset}
           />
         )}
       </div>

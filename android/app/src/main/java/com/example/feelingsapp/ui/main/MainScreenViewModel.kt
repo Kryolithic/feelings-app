@@ -28,6 +28,18 @@ class MainScreenViewModel(private val repository: DataRepository) : ViewModel() 
         return repository.signInWithGoogleIdToken(idToken)
     }
 
+    suspend fun signInWithEmail(email: String, password: String): Result<User> {
+        return repository.signInWithEmail(email, password)
+    }
+
+    suspend fun signUpWithEmail(email: String, password: String, displayName: String): Result<User> {
+        return repository.signUpWithEmail(email, password, displayName)
+    }
+
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        return repository.sendPasswordResetEmail(email)
+    }
+
     fun logout() {
         viewModelScope.launch {
             repository.logout()

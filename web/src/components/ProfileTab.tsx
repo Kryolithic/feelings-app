@@ -8,6 +8,7 @@ interface ProfileTabProps {
   onToggleTheme: () => void;
   onLogout: () => Promise<void> | void;
   onResetData: () => Promise<void> | void;
+  onSendPasswordReset?: (email: string) => Promise<void>;
 }
 
 export const ProfileTab: React.FC<ProfileTabProps> = ({
@@ -16,10 +17,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onToggleTheme,
   onLogout,
   onResetData,
+  onSendPasswordReset,
 }) => {
   const [imgError, setImgError] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   useEffect(() => {
     setImgError(false);
@@ -186,14 +190,61 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '16px 20px',
+            gap: '12px',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Shield size={18} style={{ color: 'var(--text-sub)' }} />
             <span style={{ fontSize: '15px', fontWeight: 500 }}>Password</span>
           </div>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Managed by Google</span>
+          {user.isDemo ? (
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Local Demo Account</span>
+          ) : user.authProvider === 'apple' ? (
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Managed by Apple</span>
+          ) : user.authProvider === 'password' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                {resetSent ? 'Reset email sent' : 'Email & Password'}
+              </span>
+              {onSendPasswordReset && user.email && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetError(null);
+                    setResetSent(false);
+                    void onSendPasswordReset(user.email)
+                      .then(() => setResetSent(true))
+                      .catch((err: unknown) => {
+                        setResetError(
+                          err instanceof Error ? err.message : 'Could not send reset email.',
+                        );
+                      });
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'var(--accent-light)',
+                    color: 'var(--accent)',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          ) : (
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Managed by Google</span>
+          )}
         </div>
+
+        {resetError && (
+          <p style={{ fontSize: '12px', color: '#eb5e55', textAlign: 'right', paddingRight: '4px' }}>
+            {resetError}
+          </p>
+        )}
       </div>
 
       {/* Action Zone */}

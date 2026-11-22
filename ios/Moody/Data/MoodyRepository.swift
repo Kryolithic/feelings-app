@@ -46,6 +46,10 @@ protocol MoodyDataRepository: AnyObject {
     func resetLogs() async
     func loginDemo(_ user: MoodyUser) async
     func signInWithGoogle() async -> Result<MoodyUser, Error>
+    func signInWithEmail(email: String, password: String) async -> Result<MoodyUser, Error>
+    func signUpWithEmail(email: String, password: String, displayName: String) async -> Result<MoodyUser, Error>
+    func sendPasswordReset(email: String) async -> Result<Void, Error>
+    func signInWithApple(idToken: String, rawNonce: String, fullName: PersonNameComponents?) async -> Result<MoodyUser, Error>
     func logout() async
     func setDarkTheme(_ enabled: Bool) async
     func updateReminderSettings(_ settings: ReminderSettings) async
@@ -154,17 +158,90 @@ final class DefaultMoodyRepository: MoodyDataRepository {
     }
 
     #if canImport(FirebaseAuth)
-    private func mapFirebaseUser(_ fbUser: FirebaseAuth.User) -> MoodyUser {
-        let trimmedName = fbUser.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func resolveAuthProvider(_ fbUser: FirebaseAuth.User) -> String {
+        let providerIds = fbUser.providerData.map(\.providerID)
+        if providerIds.contains("apple.com") { return "apple" }
+        if providerIds.contains("google.com") { return "google" }
+        if providerIds.contains("password") { return "password" }
+        return "password"
+    }
+
+    private func deriveDisplayName(
+        displayName: String?,
+        email: String?,
+        overrideName: String? = nil
+    ) -> String {
+        if let overrideTrimmed = overrideName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !overrideTrimmed.isEmpty {
+            return String(overrideTrimmed.prefix(200))
+        }
+        if let displayTrimmed = displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !displayTrimmed.isEmpty {
+            return String(displayTrimmed.prefix(200))
+        }
+        if let prefix = email?.split(separator: "@").first?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !prefix.isEmpty {
+            return String(prefix.prefix(200))
+        }
+        return "moody User"
+    }
+
+    private func mapFirebaseUser(_ fbUser: FirebaseAuth.User, overrideName: String? = nil) -> MoodyUser {
         return MoodyUser(
-            name: (trimmedName?.isEmpty == false ? trimmedName : nil) ?? "moody User",
+            name: deriveDisplayName(
+                displayName: fbUser.displayName,
+                email: fbUser.email,
+                overrideName: overrideName
+            ),
             email: fbUser.email?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
             avatar: fbUser.photoURL?.absoluteString ?? "",
             uid: fbUser.uid,
-            isDemo: false
+            isDemo: false,
+            authProvider: resolveAuthProvider(fbUser)
         )
     }
+
+    private func friendlyAuthError(_ error: Error) -> Error {
+        let nsError = error as NSError
+        guard nsError.domain == AuthErrorDomain,
+              let code = AuthErrorCode(rawValue: nsError.code) else {
+            return error
+        }
+        switch code {
+        case .wrongPassword, .invalidCredential, .userNotFound:
+            return MoodySyncError.message("Incorrect email or password.")
+        case .emailAlreadyInUse:
+            return MoodySyncError.message("An account with this email already exists.")
+        case .invalidEmail:
+            return MoodySyncError.message("Please enter a valid email address.")
+        case .weakPassword:
+            return MoodySyncError.message("Password must be at least 6 characters.")
+        case .operationNotAllowed:
+            return MoodySyncError.message("This sign-in method is not enabled yet in Firebase Authentication Console.")
+        case .tooManyRequests:
+            return MoodySyncError.message("Too many attempts. Please wait a moment and try again.")
+        default:
+            return error
+        }
+    }
     #endif
+
+    private func upsertUserProfile(_ mapped: MoodyUser) async {
+        #if canImport(FirebaseFirestore) && canImport(FirebaseCore)
+        guard FirebaseApp.app() != nil else { return }
+        let profilePayload: [String: Any] = [
+            "uid": mapped.uid,
+            "name": String(mapped.name.prefix(200)),
+            "email": String(mapped.email.prefix(320)),
+            "avatar": String(mapped.avatar.prefix(2048)),
+            "updatedAt": FieldValue.serverTimestamp()
+        ]
+        try? await Firestore.firestore()
+            .collection("users")
+            .document(mapped.uid)
+            .setData(profilePayload, merge: true)
+        #endif
+    }
 
     func startListeningToLogs(for uid: String) {
         guard isFirebaseConfigured, !uid.isEmpty else { return }
@@ -257,33 +334,125 @@ final class DefaultMoodyRepository: MoodyDataRepository {
             currentUser = mapped
             syncError = nil
             onStateChange?()
-
-            // Best-effort profile upsert matching firestore.rules
-            #if canImport(FirebaseFirestore)
-            let profilePayload: [String: Any] = [
-                "uid": mapped.uid,
-                "name": String(mapped.name.prefix(200)),
-                "email": String(mapped.email.prefix(320)),
-                "avatar": String(mapped.avatar.prefix(2048)),
-                "updatedAt": FieldValue.serverTimestamp()
-            ]
-            try? await Firestore.firestore()
-                .collection("users")
-                .document(mapped.uid)
-                .setData(profilePayload, merge: true)
-            #endif
-
+            await upsertUserProfile(mapped)
             return .success(mapped)
         } catch let nsError as NSError {
             if nsError.domain == kGIDSignInErrorDomain, nsError.code == GIDSignInError.canceled.rawValue {
                 return .failure(MoodySyncError.cancelled)
             }
-            return .failure(nsError)
+            return .failure(friendlyAuthError(nsError))
         } catch {
-            return .failure(error)
+            return .failure(friendlyAuthError(error))
         }
         #else
         return .failure(MoodySyncError.message("Add FirebaseAuth, FirebaseFirestore, and GoogleSignIn packages in Xcode to enable Google Sign-In."))
+        #endif
+    }
+
+    func signInWithEmail(email: String, password: String) async -> Result<MoodyUser, Error> {
+        #if canImport(FirebaseAuth) && canImport(FirebaseCore)
+        guard isFirebaseConfigured, FirebaseApp.app() != nil else {
+            return .failure(MoodySyncError.message("Firebase is not configured."))
+        }
+        do {
+            let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+            let authResult = try await Auth.auth().signIn(withEmail: trimmedEmail, password: password)
+            let mapped = mapFirebaseUser(authResult.user)
+            currentUser = mapped
+            syncError = nil
+            onStateChange?()
+            await upsertUserProfile(mapped)
+            return .success(mapped)
+        } catch {
+            return .failure(friendlyAuthError(error))
+        }
+        #else
+        return .failure(MoodySyncError.message("Add FirebaseAuth and FirebaseFirestore packages in Xcode to enable Email/Password sign-in."))
+        #endif
+    }
+
+    func signUpWithEmail(
+        email: String,
+        password: String,
+        displayName: String
+    ) async -> Result<MoodyUser, Error> {
+        #if canImport(FirebaseAuth) && canImport(FirebaseCore)
+        guard isFirebaseConfigured, FirebaseApp.app() != nil else {
+            return .failure(MoodySyncError.message("Firebase is not configured."))
+        }
+        do {
+            let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let authResult = try await Auth.auth().createUser(withEmail: trimmedEmail, password: password)
+            if !trimmedName.isEmpty {
+                let changeRequest = authResult.user.createProfileChangeRequest()
+                changeRequest.displayName = trimmedName
+                try? await changeRequest.commitChanges()
+            }
+            let mapped = mapFirebaseUser(
+                authResult.user,
+                overrideName: trimmedName.isEmpty ? nil : trimmedName
+            )
+            currentUser = mapped
+            syncError = nil
+            onStateChange?()
+            await upsertUserProfile(mapped)
+            return .success(mapped)
+        } catch {
+            return .failure(friendlyAuthError(error))
+        }
+        #else
+        return .failure(MoodySyncError.message("Add FirebaseAuth and FirebaseFirestore packages in Xcode to enable Email/Password sign-up."))
+        #endif
+    }
+
+    func sendPasswordReset(email: String) async -> Result<Void, Error> {
+        #if canImport(FirebaseAuth) && canImport(FirebaseCore)
+        guard isFirebaseConfigured, FirebaseApp.app() != nil else {
+            return .failure(MoodySyncError.message("Firebase is not configured."))
+        }
+        do {
+            let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+            try await Auth.auth().sendPasswordReset(withEmail: trimmedEmail)
+            return .success(())
+        } catch {
+            return .failure(friendlyAuthError(error))
+        }
+        #else
+        return .failure(MoodySyncError.message("Add FirebaseAuth package in Xcode to enable password reset."))
+        #endif
+    }
+
+    func signInWithApple(
+        idToken: String,
+        rawNonce: String,
+        fullName: PersonNameComponents?
+    ) async -> Result<MoodyUser, Error> {
+        #if canImport(FirebaseAuth) && canImport(FirebaseCore)
+        guard isFirebaseConfigured, FirebaseApp.app() != nil else {
+            return .failure(MoodySyncError.message("Firebase is not configured."))
+        }
+        do {
+            let credential = OAuthProvider.appleCredential(
+                withIDToken: idToken,
+                rawNonce: rawNonce,
+                fullName: fullName
+            )
+            let authResult = try await Auth.auth().signIn(with: credential)
+            let formattedFullName = fullName.map {
+                PersonNameComponentsFormatter.localizedString(from: $0, style: .default)
+            }
+            let mapped = mapFirebaseUser(authResult.user, overrideName: formattedFullName)
+            currentUser = mapped
+            syncError = nil
+            onStateChange?()
+            await upsertUserProfile(mapped)
+            return .success(mapped)
+        } catch {
+            return .failure(friendlyAuthError(error))
+        }
+        #else
+        return .failure(MoodySyncError.message("Add FirebaseAuth and FirebaseFirestore packages in Xcode to enable Sign in with Apple."))
         #endif
     }
 

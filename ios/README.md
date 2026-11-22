@@ -46,8 +46,10 @@ If you prefer not to install XcodeGen:
 
 ---
 
-## Firebase & Notes
+## Firebase & Auth Setup
 
 * `ios/Moody/GoogleService-Info.plist` is registered for **Firebase App ID** `1:803615896975:ios:b6952e7704faab263307fa` (`com.example.feelingsapp`) in project `feelings-app-19030`.
+* In [Firebase Authentication Console → Sign-in method](https://console.firebase.google.com/project/feelings-app-19030/authentication/providers), make sure **Email/Password** and **Apple** (alongside **Google**) are enabled.
+* When building in Xcode for a physical iPhone, ensure the **Sign in with Apple** capability is enabled under **Signing & Capabilities** (matching `ios/Moody/Moody.entitlements`).
 * Without Firebase SPM packages linked or without `GoogleService-Info.plist`, the app automatically runs in **Local Demo Mode** (`UserDefaults` storage + seeded sample logs).
 * Check-in reminders use `UNUserNotificationCenter` (`UserNotifications`). Quiet hours (`10 PM – 8 AM`) pre-schedules up to 48 calendar-triggered reminders (within iOS's 64-pending-notification limit) and tops up the schedule whenever the app becomes active.
