@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "803615896975-7aor6oghhn0cctj63i85kj9lsp290plt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.feelingsapp",
+            "certificate_hash": "8d2d802b5cb4a7b8816d55e4794841a1428321f6"
+          }
+        },
+        {
           "client_id": "803615896975-tflito25kenv134uvmvfdq4m4jkensh1.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
