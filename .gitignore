@@ -20,3 +20,8 @@ Thumbs.db
 *.jks
 *.keystore
 keystore.properties
+
+# Xcode / iOS
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcuserdata/

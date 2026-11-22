@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "moody-logo-dark.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
