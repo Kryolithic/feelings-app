@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import moodyLogoDark from '../assets/moody-logo-dark.png';
+import moodyLogoLight from '../assets/moody-logo-light.png';
 import type { User } from '../types';
 
 interface LoginScreenProps {
+  isDarkTheme: boolean;
   isFirebaseEnabled: boolean;
   onFirebaseSignIn: () => Promise<void>;
   onDemoLogin: (user: User) => void;
@@ -13,6 +16,7 @@ const DEMO_ACCOUNTS: User[] = [
 ];
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
+  isDarkTheme,
   isFirebaseEnabled,
   onFirebaseSignIn,
   onDemoLogin,
@@ -97,25 +101,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       />
 
       <div style={{ zIndex: 1, textAlign: 'center', marginBottom: '40px' }}>
-        <div
+        <h1
           style={{
-            width: '72px',
-            height: '72px',
-            borderRadius: '24px',
-            background: 'var(--accent-light)',
+            margin: '0 auto 16px auto',
             display: 'flex',
-            alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 24px auto',
-            color: 'var(--accent)',
-            fontSize: '32px',
-            boxShadow: 'var(--shadow-sm)',
           }}
         >
-          ✿
-        </div>
-        <h1 className="title" style={{ fontSize: '32px', marginBottom: '12px' }}>
-          moody
+          <img
+            src={isDarkTheme ? moodyLogoDark : moodyLogoLight}
+            alt="moody"
+            style={{
+              width: '200px',
+              maxWidth: '68%',
+              height: 'auto',
+              display: 'block',
+            }}
+          />
         </h1>
         <p className="subtitle" style={{ maxWidth: '280px', margin: '0 auto' }}>
           Welcome to your space of calm. Take a moment to check in with yourself.

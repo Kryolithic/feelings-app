@@ -2,6 +2,7 @@ package com.example.feelingsapp.ui.main
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import com.example.feelingsapp.data.DataRepository
 import com.example.feelingsapp.data.LogEntry
@@ -27,7 +28,7 @@ class MainScreenTest {
 
   @Test
   fun loggedOut_showsBrandingAndSignIn() {
-    composeTestRule.onNodeWithText("moody").assertExists()
+    composeTestRule.onNodeWithContentDescription("moody").assertExists()
     composeTestRule.onNodeWithText("Sign In").assertExists()
   }
 }

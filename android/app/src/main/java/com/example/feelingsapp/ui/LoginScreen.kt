@@ -1,5 +1,6 @@
 package com.example.feelingsapp.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,7 +12,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,9 +25,9 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import com.example.feelingsapp.R
 import com.example.feelingsapp.data.FirebaseConfig
 import com.example.feelingsapp.data.User
-import com.example.feelingsapp.theme.fontFamily
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
@@ -33,6 +36,7 @@ import kotlinx.coroutines.launch
 fun LoginScreen(
     onLogin: (User) -> Unit,
     modifier: Modifier = Modifier,
+    isDarkTheme: Boolean = false,
     isFirebaseConfigured: Boolean = false,
     onGoogleIdToken: suspend (String) -> Result<User> = {
         Result.failure(IllegalStateException("Firebase is not configured"))
@@ -62,28 +66,18 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
+            Image(
+                painter = painterResource(
+                    id = if (isDarkTheme) R.drawable.logo_moody_dark else R.drawable.logo_moody_light
+                ),
+                contentDescription = "moody",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Text("✿", fontSize = 36.sp, color = MaterialTheme.colorScheme.primary)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                fontFamily = fontFamily,
-                text = "moody",
-                style = MaterialTheme.typography.titleLarge,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                    .width(200.dp)
+                    .wrapContentHeight()
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 text = "Welcome to your space of calm. Take a moment to check in with yourself.",

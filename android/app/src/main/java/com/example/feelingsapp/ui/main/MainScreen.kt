@@ -38,6 +38,7 @@ fun MainScreen(
         LoginScreen(
             onLogin = { viewModel.login(it) },
             modifier = modifier,
+            isDarkTheme = isDarkTheme,
             isFirebaseConfigured = viewModel.isFirebaseConfigured,
             onGoogleIdToken = { viewModel.signInWithGoogleIdToken(it) }
         )

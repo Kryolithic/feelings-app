@@ -140,6 +140,7 @@ function App() {
     return (
       <div className="app-container" style={{ height: '100%' }}>
         <LoginScreen
+          isDarkTheme={isDarkTheme}
           isFirebaseEnabled={isFirebaseConfigured}
           onFirebaseSignIn={handleFirebaseSignIn}
           onDemoLogin={handleDemoLogin}
