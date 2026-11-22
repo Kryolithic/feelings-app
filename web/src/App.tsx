@@ -167,7 +167,16 @@ function App() {
       )}
 
       {/* Content Area */}
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative',
+        }}
+      >
         {activeTab === 'home' && <LoggingWizard onAddLog={handleAddLog} />}
         {activeTab === 'trends' && <TrendsTab logs={logs} />}
         {activeTab === 'profile' && (
@@ -185,7 +194,8 @@ function App() {
       <nav
         aria-label="Primary navigation"
         style={{
-          height: '68px',
+          minHeight: '68px',
+          flexShrink: 0,
           borderTop: '1px solid var(--border-color)',
           background: 'var(--bg-card)',
           backdropFilter: 'blur(10px)',
@@ -193,7 +203,8 @@ function App() {
           display: 'flex',
           justifyContent: 'space-around',
           alignItems: 'center',
-          paddingBottom: 'var(--safe-area-bottom)',
+          paddingTop: '10px',
+          paddingBottom: 'calc(10px + var(--safe-area-bottom))',
           zIndex: 5,
         }}
       >

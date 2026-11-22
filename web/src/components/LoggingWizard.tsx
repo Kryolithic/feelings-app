@@ -157,7 +157,7 @@ export const LoggingWizard: React.FC<LoggingWizardProps> = ({ onAddLog }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
       {renderProgress()}
 
       <div className="scroll-container">
