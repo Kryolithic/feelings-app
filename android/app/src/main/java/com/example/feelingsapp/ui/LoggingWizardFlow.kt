@@ -134,6 +134,10 @@ fun LoggingWizardFlow(
                     onSelect = {
                         selectedSub2 = it
                         step = 4
+                    },
+                    onSkip = {
+                        selectedSub2 = ""
+                        step = 4
                     }
                 )
                 4 -> IntensitySelectScreen(
@@ -162,6 +166,7 @@ fun LoggingWizardFlow(
                 )
                 5 -> SuccessScreen(
                     coreColor = coreColor,
+                    selectedCore = selectedCore,
                     selectedSub1 = selectedSub1,
                     selectedSub2 = selectedSub2,
                     intensity = intensity.roundToInt(),
@@ -346,7 +351,12 @@ fun Sub1SelectScreen(core: String, onSelect: (String) -> Unit) {
 }
 
 @Composable
-fun Sub2SelectScreen(core: String, sub1: String, onSelect: (String) -> Unit) {
+fun Sub2SelectScreen(
+    core: String,
+    sub1: String,
+    onSelect: (String) -> Unit,
+    onSkip: () -> Unit
+) {
     val coreEmotion = FeelingsData.emotions[core] ?: return
     val options = coreEmotion.sub1[sub1] ?: return
     val composeColor = parseColorSafe(coreEmotion.color)
@@ -388,6 +398,31 @@ fun Sub2SelectScreen(core: String, sub1: String, onSelect: (String) -> Unit) {
                     }
                 }
             }
+
+            item {
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = onSkip,
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "None of these apply — Skip",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("→", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
         }
     }
 }
@@ -405,6 +440,11 @@ fun IntensitySelectScreen(
     onSubmit: () -> Unit
 ) {
     val roundedIntensity = intensity.roundToInt()
+    val breadcrumb = if (selectedSub2.isNotEmpty()) {
+        "$selectedCore → $selectedSub1 → $selectedSub2"
+    } else {
+        "$selectedCore → $selectedSub1"
+    }
 
     Column(
         modifier = Modifier
@@ -421,7 +461,7 @@ fun IntensitySelectScreen(
                 .padding(horizontal = 10.dp, vertical = 5.dp)
         ) {
             Text(
-                text = "$selectedCore → $selectedSub1 → $selectedSub2",
+                text = breadcrumb,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = coreColor
@@ -519,11 +559,15 @@ fun IntensitySelectScreen(
 @Composable
 fun SuccessScreen(
     coreColor: Color,
+    selectedCore: String,
     selectedSub1: String,
     selectedSub2: String,
     intensity: Int,
     onFinish: () -> Unit
 ) {
+    val primaryLabel = selectedSub2.ifEmpty { selectedSub1 }
+    val secondaryLabel = if (selectedSub2.isNotEmpty()) selectedSub1 else selectedCore
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -572,9 +616,9 @@ fun SuccessScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(selectedSub2, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(primaryLabel, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("($selectedSub1)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("($secondaryLabel)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Box(

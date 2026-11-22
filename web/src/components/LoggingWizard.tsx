@@ -65,6 +65,12 @@ export const LoggingWizard: React.FC<LoggingWizardProps> = ({ onAddLog }) => {
     setStep(4);
   };
 
+  const handleSkipSub2 = () => {
+    setSelectedSub2('');
+    setSubmitError(null);
+    setStep(4);
+  };
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
     const coreColor = feelingsData[selectedCore]?.color || '#5f27cd';
@@ -376,6 +382,30 @@ export const LoggingWizard: React.FC<LoggingWizardProps> = ({ onAddLog }) => {
                   <Check size={16} style={{ color: coreColor }} />
                 </button>
               ))}
+
+              <button
+                type="button"
+                onClick={handleSkipSub2}
+                style={{
+                  marginTop: '6px',
+                  padding: '14px 20px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px dashed var(--border-color)',
+                  background: 'transparent',
+                  color: 'var(--text-sub)',
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  width: '100%',
+                }}
+              >
+                <span>None of these apply — Skip</span>
+                <span style={{ fontSize: '16px', opacity: 0.6 }}>→</span>
+              </button>
             </div>
           </div>
         )}
@@ -385,8 +415,17 @@ export const LoggingWizard: React.FC<LoggingWizardProps> = ({ onAddLog }) => {
           <div className="animate-fade-in" style={{ paddingBottom: '20px' }}>
             <h1 className="title">How intense is this emotion?</h1>
             <p className="subtitle">
-              {selectedCore} → {selectedSub1} →{' '}
-              <span style={{ color: coreColor, fontWeight: 600 }}>{selectedSub2}</span>
+              {selectedSub2 ? (
+                <>
+                  {selectedCore} → {selectedSub1} →{' '}
+                  <span style={{ color: coreColor, fontWeight: 600 }}>{selectedSub2}</span>
+                </>
+              ) : (
+                <>
+                  {selectedCore} →{' '}
+                  <span style={{ color: coreColor, fontWeight: 600 }}>{selectedSub1}</span>
+                </>
+              )}
             </p>
 
             <div
@@ -578,9 +617,9 @@ export const LoggingWizard: React.FC<LoggingWizardProps> = ({ onAddLog }) => {
                   marginTop: '4px',
                 }}
               >
-                {selectedSub2}{' '}
+                {selectedSub2 || selectedSub1}{' '}
                 <span style={{ fontSize: '13px', fontWeight: 400, color: 'var(--text-sub)' }}>
-                  ({selectedSub1})
+                  ({selectedSub2 ? selectedSub1 : selectedCore})
                 </span>
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>

@@ -30,6 +30,7 @@ fun MainScreen(
     val user by viewModel.user.collectAsState()
     val logs by viewModel.logs.collectAsState()
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+    val reminderSettings by viewModel.reminderSettings.collectAsState()
     val syncError by viewModel.syncError.collectAsState()
 
     val currentUser = user
@@ -96,7 +97,9 @@ fun MainScreen(
                         "profile" -> ProfileScreen(
                             user = currentUser,
                             isDarkTheme = isDarkTheme,
+                            reminderSettings = reminderSettings,
                             onToggleTheme = { viewModel.setDarkTheme(!isDarkTheme) },
+                            onUpdateReminderSettings = { viewModel.updateReminderSettings(it) },
                             onLogout = {
                                 currentTab = "home"
                                 viewModel.logout()

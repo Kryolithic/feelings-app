@@ -107,6 +107,9 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation(libs.kotlinx.coroutines.play.services)
 
+    // WorkManager (periodic mood check-in reminders)
+    implementation(libs.androidx.work.runtime.ktx)
+
 }
 
 if (file("google-services.json").exists()) {

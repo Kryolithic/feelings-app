@@ -4,7 +4,9 @@ import com.example.feelingsapp.data.DataRepository
 import com.example.feelingsapp.data.FeelingsData
 import com.example.feelingsapp.data.IsoTimestamp
 import com.example.feelingsapp.data.LogEntry
+import com.example.feelingsapp.data.ReminderSettings
 import com.example.feelingsapp.data.User
+import com.example.feelingsapp.notifications.MoodReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,6 +125,77 @@ class MainScreenViewModelTest {
     assertNotNull(parsed)
     assertEquals(now.time, parsed?.time)
   }
+
+  @Test
+  fun saveLog_withSkippedSub2_savesEmptySub2() = runTest(testDispatcher) {
+    val repo = FakeFeelingsRepository()
+    val viewModel = MainScreenViewModel(repo)
+
+    val entry = LogEntry(
+      id = "log-skip-sub2",
+      timestamp = IsoTimestamp.formatUtc(Date()),
+      core = "Happy",
+      sub1 = "Content",
+      sub2 = "",
+      intensity = 6,
+      note = "Skipped refinement step",
+      color = "#f2a380"
+    )
+
+    viewModel.saveLog(entry)
+    advanceUntilIdle()
+    assertEquals(1, viewModel.logs.value.size)
+    assertEquals("Content", viewModel.logs.value.first().sub1)
+    assertEquals("", viewModel.logs.value.first().sub2)
+  }
+
+  @Test
+  fun updateReminderSettings_updatesAndNormalizesState() = runTest(testDispatcher) {
+    val repo = FakeFeelingsRepository()
+    val viewModel = MainScreenViewModel(repo)
+
+    assertFalse(viewModel.reminderSettings.value.enabled)
+    assertEquals(ReminderSettings.DEFAULT_INTERVAL_MINUTES, viewModel.reminderSettings.value.intervalMinutes)
+    assertFalse(viewModel.reminderSettings.value.quietHoursEnabled)
+
+    viewModel.updateReminderSettings(
+      ReminderSettings(
+        enabled = true,
+        intervalMinutes = 5L,
+        quietHoursEnabled = true
+      )
+    )
+    advanceUntilIdle()
+
+    val updated = viewModel.reminderSettings.value
+    assertTrue(updated.enabled)
+    assertEquals(ReminderSettings.MIN_INTERVAL_MINUTES, updated.intervalMinutes)
+    assertTrue(updated.quietHoursEnabled)
+  }
+
+  @Test
+  fun reminderSettings_clampsAndFormatsIntervals() {
+    val tooLong = ReminderSettings(enabled = true, intervalMinutes = 20_000L).normalized()
+    assertEquals(ReminderSettings.MAX_INTERVAL_MINUTES, tooLong.intervalMinutes)
+
+    assertEquals("15 min", ReminderSettings.formatInterval(15L))
+    assertEquals("1 hour", ReminderSettings.formatInterval(60L))
+    assertEquals("1h 30m", ReminderSettings.formatInterval(90L))
+    assertEquals("24 hours", ReminderSettings.formatInterval(1440L))
+    assertEquals("2 days", ReminderSettings.formatInterval(2880L))
+    assertEquals("4h", ReminderSettings.formatShortChip(240L))
+  }
+
+  @Test
+  fun quietHours_detectsNightWindowCorrectly() {
+    assertTrue(MoodReminderScheduler.isWithinQuietHours(22))
+    assertTrue(MoodReminderScheduler.isWithinQuietHours(23))
+    assertTrue(MoodReminderScheduler.isWithinQuietHours(0))
+    assertTrue(MoodReminderScheduler.isWithinQuietHours(7))
+    assertFalse(MoodReminderScheduler.isWithinQuietHours(8))
+    assertFalse(MoodReminderScheduler.isWithinQuietHours(14))
+    assertFalse(MoodReminderScheduler.isWithinQuietHours(21))
+  }
 }
 
 private class FakeFeelingsRepository : DataRepository {
@@ -134,6 +207,9 @@ private class FakeFeelingsRepository : DataRepository {
 
   private val _isDarkTheme = MutableStateFlow(false)
   override val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
+  private val _reminderSettings = MutableStateFlow(ReminderSettings())
+  override val reminderSettings: StateFlow<ReminderSettings> = _reminderSettings.asStateFlow()
 
   override val isFirebaseConfigured: Boolean = false
 
@@ -171,6 +247,10 @@ private class FakeFeelingsRepository : DataRepository {
 
   override suspend fun setDarkTheme(enabled: Boolean) {
     _isDarkTheme.value = enabled
+  }
+
+  override suspend fun updateReminderSettings(settings: ReminderSettings) {
+    _reminderSettings.value = settings.normalized()
   }
 
   override fun clear() {}

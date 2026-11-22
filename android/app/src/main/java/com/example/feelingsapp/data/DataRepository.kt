@@ -1,6 +1,7 @@
 package com.example.feelingsapp.data
 
 import android.content.Context
+import com.example.feelingsapp.notifications.MoodReminderScheduler
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -47,6 +48,44 @@ data class User(
     val isDemo: Boolean = true
 )
 
+data class ReminderSettings(
+    val enabled: Boolean = false,
+    val intervalMinutes: Long = DEFAULT_INTERVAL_MINUTES,
+    val quietHoursEnabled: Boolean = false
+) {
+    fun normalized(): ReminderSettings = copy(
+        intervalMinutes = intervalMinutes.coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES)
+    )
+
+    companion object {
+        const val MIN_INTERVAL_MINUTES = 15L
+        const val MAX_INTERVAL_MINUTES = 10_080L // 7 days
+        const val DEFAULT_INTERVAL_MINUTES = 240L // 4 hours
+        val PRESET_INTERVALS_MINUTES = listOf(15L, 30L, 60L, 120L, 240L, 360L, 720L, 1440L)
+
+        fun formatInterval(minutes: Long): String {
+            val clamped = minutes.coerceIn(MIN_INTERVAL_MINUTES, MAX_INTERVAL_MINUTES)
+            return when {
+                clamped < 60L -> "$clamped min"
+                clamped >= 2880L && clamped % 1440L == 0L -> "${clamped / 1440L} days"
+                clamped % 60L == 0L -> {
+                    val hours = clamped / 60L
+                    if (hours == 1L) "1 hour" else "$hours hours"
+                }
+                else -> "${clamped / 60L}h ${clamped % 60L}m"
+            }
+        }
+
+        fun formatShortChip(minutes: Long): String {
+            return when {
+                minutes < 60L -> "${minutes}m"
+                minutes % 60L == 0L -> "${minutes / 60L}h"
+                else -> "${minutes / 60L}h ${minutes % 60L}m"
+            }
+        }
+    }
+}
+
 object IsoTimestamp {
     private val utcTimeZone: TimeZone = TimeZone.getTimeZone("UTC")
 
@@ -82,6 +121,7 @@ interface DataRepository {
     val logs: StateFlow<List<LogEntry>>
     val user: StateFlow<User?>
     val isDarkTheme: StateFlow<Boolean>
+    val reminderSettings: StateFlow<ReminderSettings>
     val isFirebaseConfigured: Boolean
     val syncError: StateFlow<String?>
     suspend fun saveLog(log: LogEntry)
@@ -90,11 +130,13 @@ interface DataRepository {
     suspend fun signInWithGoogleIdToken(idToken: String): Result<User>
     suspend fun logout()
     suspend fun setDarkTheme(enabled: Boolean)
+    suspend fun updateReminderSettings(settings: ReminderSettings)
     fun clear()
 }
 
 class DefaultDataRepository(context: Context) : DataRepository {
-    private val prefs = context.getSharedPreferences("serene_prefs", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(MoodReminderScheduler.PREFS_NAME, Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true }
 
     private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
@@ -106,7 +148,10 @@ class DefaultDataRepository(context: Context) : DataRepository {
     private val _isDarkTheme = MutableStateFlow(false)
     override val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
-    override val isFirebaseConfigured: Boolean = FirebaseConfig.isConfigured(context)
+    private val _reminderSettings = MutableStateFlow(ReminderSettings())
+    override val reminderSettings: StateFlow<ReminderSettings> = _reminderSettings.asStateFlow()
+
+    override val isFirebaseConfigured: Boolean = FirebaseConfig.isConfigured(appContext)
 
     private val _syncError = MutableStateFlow<String?>(null)
     override val syncError: StateFlow<String?> = _syncError.asStateFlow()
@@ -119,6 +164,20 @@ class DefaultDataRepository(context: Context) : DataRepository {
 
     init {
         _isDarkTheme.value = prefs.getBoolean("theme_dark", false)
+
+        val savedReminders = ReminderSettings(
+            enabled = prefs.getBoolean(MoodReminderScheduler.KEY_ENABLED, false),
+            intervalMinutes = prefs.getLong(
+                MoodReminderScheduler.KEY_INTERVAL_MINUTES,
+                ReminderSettings.DEFAULT_INTERVAL_MINUTES
+            ),
+            quietHoursEnabled = prefs.getBoolean(MoodReminderScheduler.KEY_QUIET_HOURS, false)
+        ).normalized()
+        _reminderSettings.value = savedReminders
+        MoodReminderScheduler.ensureNotificationChannel(appContext)
+        if (savedReminders.enabled) {
+            MoodReminderScheduler.scheduleReminders(appContext, savedReminders, replaceExisting = false)
+        }
 
         if (firebaseAuth != null) {
             val listener = FirebaseAuth.AuthStateListener { auth ->
@@ -353,6 +412,25 @@ class DefaultDataRepository(context: Context) : DataRepository {
             } catch (_: Exception) {
                 // Best-effort preference sync
             }
+        }
+    }
+
+    override suspend fun updateReminderSettings(settings: ReminderSettings) {
+        val previous = _reminderSettings.value
+        val normalized = settings.normalized()
+        _reminderSettings.value = normalized
+
+        prefs.edit()
+            .putBoolean(MoodReminderScheduler.KEY_ENABLED, normalized.enabled)
+            .putLong(MoodReminderScheduler.KEY_INTERVAL_MINUTES, normalized.intervalMinutes)
+            .putBoolean(MoodReminderScheduler.KEY_QUIET_HOURS, normalized.quietHoursEnabled)
+            .apply()
+
+        if (normalized.enabled) {
+            val replace = !previous.enabled || previous.intervalMinutes != normalized.intervalMinutes
+            MoodReminderScheduler.scheduleReminders(appContext, normalized, replaceExisting = replace)
+        } else {
+            MoodReminderScheduler.cancelReminders(appContext)
         }
     }
 

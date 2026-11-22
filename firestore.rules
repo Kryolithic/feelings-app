@@ -36,7 +36,7 @@ rules_version = '2';
 //   - core: string (required; enum: 'Sad', 'Disgusted', 'Angry', 'Fearful',
 //     'Bad', 'Surprised', 'Happy')
 //   - sub1: string (required; length 1..50)
-//   - sub2: string (required; length 1..50)
+//   - sub2: string (required; empty string when refinement is skipped, length 0..50)
 //   - intensity: int (required; range 1..10)
 //   - note: string (required; length 0..2000)
 //   - color: string (required; hex color #RGB, #RRGGBB, or #RRGGBBAA; length 4..9)
@@ -191,7 +191,7 @@ service cloud.firestore {
              data.core is string &&
              data.core in validCores &&
              validStringLength('sub1', 1, 50) &&
-             validStringLength('sub2', 1, 50) &&
+             validStringLength('sub2', 0, 50) &&
              data.intensity is int &&
              data.intensity >= 1 &&
              data.intensity <= 10 &&

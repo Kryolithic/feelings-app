@@ -133,6 +133,7 @@ export const TrendsTab: React.FC<TrendsTabProps> = ({ logs }) => {
       y: getY(log.intensity),
       color: log.color,
       core: log.core,
+      sub1: log.sub1,
       sub2: log.sub2,
       intensity: log.intensity,
       timestamp: log.timestamp,
@@ -263,7 +264,7 @@ export const TrendsTab: React.FC<TrendsTabProps> = ({ logs }) => {
                   strokeWidth="1.5"
                   style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.1))' }}
                 />
-                <title>{`${pt.sub2} (${pt.intensity}/10)`}</title>
+                <title>{`${pt.sub2 || pt.sub1} (${pt.intensity}/10)`}</title>
               </g>
             );
           })}
@@ -313,7 +314,7 @@ export const TrendsTab: React.FC<TrendsTabProps> = ({ logs }) => {
                 }}
               />
               <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-                {activePoint.sub2}
+                {activePoint.sub2 || activePoint.sub1}
               </span>
               <span style={{ color: 'var(--text-sub)' }}>({activePoint.core})</span>
             </div>
@@ -598,7 +599,7 @@ export const TrendsTab: React.FC<TrendsTabProps> = ({ logs }) => {
                   </div>
 
                   <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-main)' }}>
-                    {log.sub2}
+                    {log.sub2 || log.sub1}
                     <span
                       style={{
                         fontSize: '13px',
@@ -607,7 +608,7 @@ export const TrendsTab: React.FC<TrendsTabProps> = ({ logs }) => {
                         marginLeft: '6px',
                       }}
                     >
-                      ({log.sub1})
+                      ({log.sub2 ? log.sub1 : log.core})
                     </span>
                   </p>
 

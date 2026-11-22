@@ -469,10 +469,12 @@ fun TrendsScreen(
 
                             Spacer(modifier = Modifier.height(4.dp))
 
+                            val primaryLabel = log.sub2.ifEmpty { log.sub1 }
+                            val secondaryLabel = if (log.sub2.isNotEmpty()) log.sub1 else log.core
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(log.sub2, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text(primaryLabel, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("(${log.sub1})", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("($secondaryLabel)", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
 
                             if (log.note.isNotEmpty()) {

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.feelingsapp.data.DataRepository
 import com.example.feelingsapp.data.LogEntry
+import com.example.feelingsapp.data.ReminderSettings
 import com.example.feelingsapp.data.User
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -13,6 +14,7 @@ class MainScreenViewModel(private val repository: DataRepository) : ViewModel() 
     val user: StateFlow<User?> = repository.user
     val logs: StateFlow<List<LogEntry>> = repository.logs
     val isDarkTheme: StateFlow<Boolean> = repository.isDarkTheme
+    val reminderSettings: StateFlow<ReminderSettings> = repository.reminderSettings
     val isFirebaseConfigured: Boolean = repository.isFirebaseConfigured
     val syncError: StateFlow<String?> = repository.syncError
 
@@ -47,6 +49,12 @@ class MainScreenViewModel(private val repository: DataRepository) : ViewModel() 
     fun setDarkTheme(enabled: Boolean) {
         viewModelScope.launch {
             repository.setDarkTheme(enabled)
+        }
+    }
+
+    fun updateReminderSettings(settings: ReminderSettings) {
+        viewModelScope.launch {
+            repository.updateReminderSettings(settings)
         }
     }
 

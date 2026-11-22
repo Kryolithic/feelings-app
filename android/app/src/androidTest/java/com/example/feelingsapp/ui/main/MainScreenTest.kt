@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.example.feelingsapp.data.DataRepository
 import com.example.feelingsapp.data.LogEntry
+import com.example.feelingsapp.data.ReminderSettings
 import com.example.feelingsapp.data.User
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,6 +42,9 @@ private class FakeTestRepository : DataRepository {
   private val _isDarkTheme = MutableStateFlow(false)
   override val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
+  private val _reminderSettings = MutableStateFlow(ReminderSettings())
+  override val reminderSettings: StateFlow<ReminderSettings> = _reminderSettings.asStateFlow()
+
   override val isFirebaseConfigured: Boolean = false
 
   private val _syncError = MutableStateFlow<String?>(null)
@@ -68,6 +72,10 @@ private class FakeTestRepository : DataRepository {
 
   override suspend fun setDarkTheme(enabled: Boolean) {
     _isDarkTheme.value = enabled
+  }
+
+  override suspend fun updateReminderSettings(settings: ReminderSettings) {
+    _reminderSettings.value = settings.normalized()
   }
 
   override fun clear() {}
