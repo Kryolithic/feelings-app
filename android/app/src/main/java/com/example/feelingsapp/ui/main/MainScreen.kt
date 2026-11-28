@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.feelingsapp.BuildConfig
 import com.example.feelingsapp.ui.LoggingWizardFlow
 import com.example.feelingsapp.ui.LoginScreen
 import com.example.feelingsapp.ui.ProfileScreen
@@ -40,6 +41,7 @@ fun MainScreen(
             modifier = modifier,
             isDarkTheme = isDarkTheme,
             isFirebaseConfigured = viewModel.isFirebaseConfigured,
+            allowDemoMode = BuildConfig.DEBUG,
             onGoogleIdToken = { viewModel.signInWithGoogleIdToken(it) },
             onEmailSignIn = { email, password -> viewModel.signInWithEmail(email, password) },
             onEmailSignUp = { email, password, displayName ->

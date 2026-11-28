@@ -1,8 +1,12 @@
 package com.example.feelingsapp.data
 
 import android.content.Context
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
+import com.example.feelingsapp.BuildConfig
 import com.example.feelingsapp.notifications.MoodReminderScheduler
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseUser
@@ -11,6 +15,7 @@ import com.google.firebase.auth.auth
 import com.google.firebase.auth.userProfileChangeRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
@@ -157,7 +162,11 @@ class DefaultDataRepository(context: Context) : DataRepository {
     private val _reminderSettings = MutableStateFlow(ReminderSettings())
     override val reminderSettings: StateFlow<ReminderSettings> = _reminderSettings.asStateFlow()
 
-    override val isFirebaseConfigured: Boolean = FirebaseConfig.isConfigured(appContext)
+    override val isFirebaseConfigured: Boolean = FirebaseConfig.isConfigured(appContext).also { configured ->
+        if (configured) {
+            FirebaseConfig.configureSecurityDefaults(appContext)
+        }
+    }
 
     private val _syncError = MutableStateFlow<String?>(null)
     override val syncError: StateFlow<String?> = _syncError.asStateFlow()
@@ -203,7 +212,7 @@ class DefaultDataRepository(context: Context) : DataRepository {
             }
             authStateListener = listener
             firebaseAuth.addAuthStateListener(listener)
-        } else {
+        } else if (BuildConfig.DEBUG) {
             val userJson = prefs.getString("user", null)
             if (userJson != null) {
                 try {
@@ -275,18 +284,7 @@ class DefaultDataRepository(context: Context) : DataRepository {
 
     private fun friendlyAuthErrorMessage(e: Exception): String {
         val code = (e as? FirebaseAuthException)?.errorCode
-        return when (code) {
-            "ERROR_INVALID_CREDENTIAL",
-            "ERROR_WRONG_PASSWORD",
-            "ERROR_USER_NOT_FOUND" -> "Incorrect email or password."
-            "ERROR_EMAIL_ALREADY_IN_USE" -> "An account with this email already exists."
-            "ERROR_INVALID_EMAIL" -> "Please enter a valid email address."
-            "ERROR_WEAK_PASSWORD" -> "Password must be at least 6 characters."
-            "ERROR_OPERATION_NOT_ALLOWED" ->
-                "Email/Password sign-in is not enabled yet in Firebase Authentication Console."
-            "ERROR_TOO_MANY_REQUESTS" -> "Too many attempts. Please wait a moment and try again."
-            else -> e.localizedMessage ?: "Authentication failed. Please try again."
-        }
+        return SecurityUtils.mapAuthErrorCode(code, isNetworkError = e is FirebaseNetworkException)
     }
 
     private fun attachFirestoreLogsListener(uid: String) {
@@ -298,7 +296,10 @@ class DefaultDataRepository(context: Context) : DataRepository {
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    _syncError.value = error.localizedMessage ?: "Unable to sync logs."
+                    _syncError.value = SecurityUtils.mapFirestoreErrorCode(
+                        (error as? FirebaseFirestoreException)?.code?.name,
+                        "Unable to sync logs."
+                    )
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
@@ -392,6 +393,13 @@ class DefaultDataRepository(context: Context) : DataRepository {
                     // Display name is also derived during Firestore profile upsert
                 }
             }
+            try {
+                fbUser.sendEmailVerification().await()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Best-effort verification email
+            }
             val mapped = mapFirebaseUser(fbUser, overrideName = trimmedName.ifEmpty { null })
             _user.value = mapped
             upsertFirestoreUserProfile(mapped)
@@ -418,36 +426,47 @@ class DefaultDataRepository(context: Context) : DataRepository {
 
     override suspend fun saveLog(log: LogEntry) {
         val activeUser = _user.value
+        val sanitizedLog = log.copy(
+            id = log.id.take(128),
+            sub1 = log.sub1.take(50),
+            sub2 = log.sub2.take(50),
+            intensity = log.intensity.coerceIn(1, 10),
+            note = SecurityUtils.sanitizeNote(log.note)
+        )
         val db = firestore
         if (db != null && activeUser != null && !activeUser.isDemo && activeUser.uid.isNotBlank()) {
             try {
                 val payload = mapOf(
-                    "id" to log.id.take(128),
-                    "timestamp" to log.timestamp,
-                    "core" to log.core,
-                    "sub1" to log.sub1.take(50),
-                    "sub2" to log.sub2.take(50),
-                    "intensity" to log.intensity.coerceIn(1, 10),
-                    "note" to log.note.take(2000),
-                    "color" to log.color,
+                    "id" to sanitizedLog.id,
+                    "timestamp" to sanitizedLog.timestamp,
+                    "core" to sanitizedLog.core,
+                    "sub1" to sanitizedLog.sub1,
+                    "sub2" to sanitizedLog.sub2,
+                    "intensity" to sanitizedLog.intensity,
+                    "note" to sanitizedLog.note,
+                    "color" to sanitizedLog.color,
                     "createdAt" to FieldValue.serverTimestamp()
                 )
                 db.collection("users")
                     .document(activeUser.uid)
                     .collection("logs")
-                    .document(log.id)
+                    .document(sanitizedLog.id)
                     .set(payload)
                     .await()
                 _syncError.value = null
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _syncError.value = e.localizedMessage ?: "Failed to save log to cloud."
+                _syncError.value = SecurityUtils.mapFirestoreErrorCode(
+                    (e as? FirebaseFirestoreException)?.code?.name,
+                    "Failed to save log to cloud."
+                )
             }
             return
         }
 
-        val updated = (listOf(log) + _logs.value).sortedByDescending { it.timestamp }
+        if (!BuildConfig.DEBUG) return
+        val updated = (listOf(sanitizedLog) + _logs.value).sortedByDescending { it.timestamp }
         _logs.value = updated
         saveLogsToPrefs(updated, activeUser?.email)
     }
@@ -475,7 +494,10 @@ class DefaultDataRepository(context: Context) : DataRepository {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _syncError.value = e.localizedMessage ?: "Failed to clear cloud history."
+                _syncError.value = SecurityUtils.mapFirestoreErrorCode(
+                    (e as? FirebaseFirestoreException)?.code?.name,
+                    "Failed to clear cloud history."
+                )
             }
             return
         }
@@ -485,6 +507,7 @@ class DefaultDataRepository(context: Context) : DataRepository {
     }
 
     override suspend fun login(newUser: User) {
+        if (!BuildConfig.DEBUG) return
         val demoUser = newUser.copy(isDemo = true)
         _user.value = demoUser
         prefs.edit().putString("user", json.encodeToString(demoUser)).apply()
@@ -495,10 +518,26 @@ class DefaultDataRepository(context: Context) : DataRepository {
         logsListener?.remove()
         logsListener = null
         firebaseAuth?.signOut()
+        try {
+            CredentialManager.create(appContext).clearCredentialState(ClearCredentialStateRequest())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Best-effort credential state cleanup
+        }
+        MoodReminderScheduler.cancelReminders(appContext)
+        _reminderSettings.value = _reminderSettings.value.copy(enabled = false)
         _user.value = null
         _logs.value = emptyList()
         _syncError.value = null
-        prefs.edit().remove("user").apply()
+        prefs.edit().apply {
+            putBoolean(MoodReminderScheduler.KEY_ENABLED, false)
+            remove("user")
+            prefs.all.keys
+                .filter { it.startsWith("logs_") }
+                .forEach { remove(it) }
+            apply()
+        }
     }
 
     override suspend fun setDarkTheme(enabled: Boolean) {

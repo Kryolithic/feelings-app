@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.example.feelingsapp.data.FeelingsData
 import com.example.feelingsapp.data.IsoTimestamp
 import com.example.feelingsapp.data.LogEntry
+import com.example.feelingsapp.data.SecurityUtils
 import com.example.feelingsapp.data.parseColorSafe
 import kotlinx.coroutines.delay
 import java.util.Date
@@ -148,8 +149,9 @@ fun LoggingWizardFlow(
                     intensity = intensity,
                     note = note,
                     onIntensityChange = { intensity = it },
-                    onNoteChange = { note = it },
+                    onNoteChange = { note = it.take(SecurityUtils.MAX_NOTE_LENGTH) },
                     onSubmit = {
+                        val sanitizedNote = SecurityUtils.sanitizeNote(note)
                         val newLog = LogEntry(
                             id = UUID.randomUUID().toString(),
                             timestamp = IsoTimestamp.formatUtc(Date()),
@@ -157,7 +159,7 @@ fun LoggingWizardFlow(
                             sub1 = selectedSub1,
                             sub2 = selectedSub2,
                             intensity = intensity.roundToInt(),
-                            note = note.trim(),
+                            note = sanitizedNote,
                             color = FeelingsData.emotions[selectedCore]?.color ?: "#5f27cd"
                         )
                         onAddLog(newLog)
@@ -531,10 +533,13 @@ fun IntensitySelectScreen(
             value = note,
             onValueChange = onNoteChange,
             placeholder = { Text("What is causing this feeling? Writing it down can bring clarity...") },
+            supportingText = {
+                Text("${note.length} / ${SecurityUtils.MAX_NOTE_LENGTH}")
+            },
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(120.dp),
+                .heightIn(min = 120.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = coreColor,
                 cursorColor = coreColor

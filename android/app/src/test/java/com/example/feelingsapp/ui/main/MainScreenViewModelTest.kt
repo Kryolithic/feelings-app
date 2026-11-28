@@ -5,6 +5,7 @@ import com.example.feelingsapp.data.FeelingsData
 import com.example.feelingsapp.data.IsoTimestamp
 import com.example.feelingsapp.data.LogEntry
 import com.example.feelingsapp.data.ReminderSettings
+import com.example.feelingsapp.data.SecurityUtils
 import com.example.feelingsapp.data.User
 import com.example.feelingsapp.notifications.MoodReminderScheduler
 import kotlinx.coroutines.Dispatchers
@@ -226,6 +227,46 @@ class MainScreenViewModelTest {
 
     val res = viewModel.sendPasswordResetEmail("alex@example.com")
     assertTrue(res.isSuccess)
+  }
+
+  @Test
+  fun securityUtils_generatesDistinctHexNonces() {
+    val first = SecurityUtils.generateHashedNonce()
+    val second = SecurityUtils.generateHashedNonce()
+
+    assertEquals(64, first.length)
+    assertEquals(64, second.length)
+    assertTrue(first.all { it in '0'..'9' || it in 'a'..'f' })
+    assertFalse(first == second)
+  }
+
+  @Test
+  fun securityUtils_validatesSignUpPasswordAndSanitizesNotes() {
+    assertNotNull(SecurityUtils.validateSignUpPassword("short7"))
+    assertNotNull(SecurityUtils.validateSignUpPassword("        "))
+    assertNull(SecurityUtils.validateSignUpPassword("StrongPass1"))
+
+    val longNote = "  " + "a".repeat(2500) + "  "
+    val sanitized = SecurityUtils.sanitizeNote(longNote)
+    assertEquals(SecurityUtils.MAX_NOTE_LENGTH, sanitized.length)
+  }
+
+  @Test
+  fun securityUtils_mapsAuthAndFirestoreErrorsWithoutRawLeakage() {
+    val emailInUse = SecurityUtils.mapAuthErrorCode("ERROR_EMAIL_ALREADY_IN_USE")
+    assertFalse(emailInUse.contains("already exists", ignoreCase = true))
+
+    val network = SecurityUtils.mapAuthErrorCode(null, isNetworkError = true)
+    assertTrue(network.contains("Network", ignoreCase = true))
+
+    val unknownAuth = SecurityUtils.mapAuthErrorCode("UNKNOWN_INTERNAL_DETAIL")
+    assertEquals("Authentication failed. Please try again.", unknownAuth)
+
+    val permDenied = SecurityUtils.mapFirestoreErrorCode("PERMISSION_DENIED", "Fallback")
+    assertTrue(permDenied.contains("permission", ignoreCase = true))
+
+    val unknownFirestore = SecurityUtils.mapFirestoreErrorCode("INTERNAL", "Fallback")
+    assertEquals("Fallback", unknownFirestore)
   }
 }
 

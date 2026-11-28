@@ -38,7 +38,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
@@ -52,7 +53,7 @@ android {
     buildFeatures {
       compose = true
       aidl = false
-      buildConfig = false
+      buildConfig = true
       shaders = false
     }
 
@@ -113,14 +114,15 @@ dependencies {
     //Google fonts
     implementation("androidx.compose.ui:ui-text-google-fonts:1.11.4")
 
-    //Firebase auth UI
-    implementation("com.firebaseui:firebase-ui-auth:9.1.1")
-
     //Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
 
     //Firebase Auth
     implementation("com.google.firebase:firebase-auth")
+
+    // Firebase App Check (Play Integrity in release, Debug provider in debug)
+    debugImplementation("com.google.firebase:firebase-appcheck-debug")
+    releaseImplementation("com.google.firebase:firebase-appcheck-playintegrity")
 
     //Credential manager library
     implementation("androidx.credentials:credentials:1.6.0")

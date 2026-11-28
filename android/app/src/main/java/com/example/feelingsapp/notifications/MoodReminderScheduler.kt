@@ -120,6 +120,12 @@ object MoodReminderScheduler {
             calmPrompts[index]
         }
 
+        val publicNotification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification_mood)
+            .setContentTitle("moody")
+            .setContentText("Check-in reminder")
+            .build()
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_mood)
             .setContentTitle("moody")
@@ -127,6 +133,8 @@ object MoodReminderScheduler {
             .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicNotification)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()

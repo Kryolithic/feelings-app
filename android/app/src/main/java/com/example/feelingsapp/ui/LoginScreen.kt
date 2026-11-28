@@ -32,8 +32,11 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
+import com.example.feelingsapp.BuildConfig
 import com.example.feelingsapp.R
 import com.example.feelingsapp.data.FirebaseConfig
+import com.example.feelingsapp.data.SecurityUtils
 import com.example.feelingsapp.data.User
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -45,6 +48,7 @@ fun LoginScreen(
     modifier: Modifier = Modifier,
     isDarkTheme: Boolean = false,
     isFirebaseConfigured: Boolean = false,
+    allowDemoMode: Boolean = BuildConfig.DEBUG,
     onGoogleIdToken: suspend (String) -> Result<User> = {
         Result.failure(IllegalStateException("Firebase is not configured"))
     },
@@ -197,7 +201,15 @@ fun LoginScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Password (6+ characters)") },
+                label = {
+                    Text(
+                        if (isSignUpMode) {
+                            "Password (${SecurityUtils.MIN_SIGNUP_PASSWORD_LENGTH}+ characters)"
+                        } else {
+                            "Password"
+                        }
+                    )
+                },
                 singleLine = true,
                 enabled = !isSigningIn,
                 visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
@@ -231,7 +243,7 @@ fun LoginScreen(
                                 val res = onSendPasswordReset(trimmed)
                                 isSigningIn = false
                                 if (res.isSuccess) {
-                                    authNotice = "Password reset email sent to $trimmed."
+                                    authNotice = "If an account exists for $trimmed, a password reset email has been sent."
                                 } else {
                                     authError = res.exceptionOrNull()?.localizedMessage
                                         ?: "Could not send password reset email."
@@ -256,12 +268,24 @@ fun LoginScreen(
                         authError = "Please enter a valid email address."
                         return@Button
                     }
-                    if (password.length < 6) {
-                        authError = "Password must be at least 6 characters."
+                    if (isSignUpMode) {
+                        val passwordError = SecurityUtils.validateSignUpPassword(password)
+                        if (passwordError != null) {
+                            authError = passwordError
+                            return@Button
+                        }
+                    } else if (password.length < SecurityUtils.MIN_SIGNIN_PASSWORD_LENGTH) {
+                        authError =
+                            "Password must be at least ${SecurityUtils.MIN_SIGNIN_PASSWORD_LENGTH} characters."
                         return@Button
                     }
 
                     if (!isFirebaseConfigured) {
+                        if (!allowDemoMode) {
+                            authError =
+                                "Cloud authentication is unavailable right now. Please reinstall or try again later."
+                            return@Button
+                        }
                         val fallbackName = displayName.trim().ifEmpty {
                             trimmedEmail.substringBefore("@").ifEmpty { "moody User" }
                         }
@@ -345,6 +369,7 @@ fun LoginScreen(
                                 val googleIdOption = GetGoogleIdOption.Builder()
                                     .setServerClientId(webClientId)
                                     .setFilterByAuthorizedAccounts(false)
+                                    .setNonce(SecurityUtils.generateHashedNonce())
                                     .build()
                                 val request = GetCredentialRequest.Builder()
                                     .addCredentialOption(googleIdOption)
@@ -370,16 +395,21 @@ fun LoginScreen(
                                 }
                             } catch (_: GetCredentialCancellationException) {
                                 // User dismissed the account picker
-                            } catch (e: GetCredentialException) {
-                                authError = e.localizedMessage ?: "Google sign-in failed."
-                            } catch (e: Exception) {
-                                authError = e.localizedMessage ?: "Unable to sign in right now."
+                            } catch (_: NoCredentialException) {
+                                authError = "No Google account found on this device."
+                            } catch (_: GetCredentialException) {
+                                authError = "Google sign-in failed. Please try again."
+                            } catch (_: Exception) {
+                                authError = "Unable to sign in right now. Please try again."
                             } finally {
                                 isSigningIn = false
                             }
                         }
-                    } else {
+                    } else if (allowDemoMode) {
                         showChooser = true
+                    } else {
+                        authError =
+                            "Google sign-in is unavailable right now. Please reinstall or try again later."
                     }
                 },
                 shape = RoundedCornerShape(16.dp),
@@ -414,7 +444,7 @@ fun LoginScreen(
                 )
             }
 
-            if (!isFirebaseConfigured) {
+            if (!isFirebaseConfigured && allowDemoMode) {
                 Spacer(modifier = Modifier.height(14.dp))
                 Box(
                     modifier = Modifier
@@ -439,7 +469,7 @@ fun LoginScreen(
         }
     }
 
-    if (showChooser) {
+    if (showChooser && allowDemoMode) {
         Dialog(onDismissRequest = { showChooser = false }) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
@@ -467,11 +497,11 @@ fun LoginScreen(
                     )
 
                     AccountItem(
-                        name = "Gary",
-                        email = "gary@gmail.com",
+                        name = "Demo User",
+                        email = "demo@moody.local",
                         onClick = {
                             showChooser = false
-                            onLogin(User("Gary", "gary@gmail.com", "", uid = "demo-gary", isDemo = true))
+                            onLogin(User("Demo User", "demo@moody.local", "", uid = "demo-user", isDemo = true))
                         }
                     )
 
@@ -500,7 +530,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "To continue, Google will share your name, email address, and profile picture with moody.",
+                        text = "Debug demo accounts store logs only on this device.",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center,
